@@ -21,7 +21,7 @@ pbarStruct = load('tracesbar1.mat'); % bar
 p_low = 0;
 p_mid = 0;
 p_high = 0;
-figure(1)
+
 for i = n(1):min(length(codes), n(2))
 	name = join(["pbarStruct.pbar",string(codes(i))],"");
 	p_array = eval(name);
@@ -66,31 +66,70 @@ rb = web ./ (t_burn(:,:,2) - t_burn(:,:,1)) * f;
 rb_calc = [rb(:,1); rb(:,2); rb(:,3)];
 p_calc = [p_eff(:,1); p_eff(:,2); p_eff(:,3)];
 
-[a_avg, a_std, n_avg, n_std, R2] = Uncertainty(p_calc, rb_calc)
+[a_avg, a_std, n_avg, n_std, R2] = Uncertainty(p_calc, rb_calc);
 
 rho = 1/ (frac_ap/rho_ap + frac_al/rho_al + frac_htpb/rho_htpb) * 1e3; % kg/m3
 
 clearvars -except a_avg a_std n_avg n_std rho
 
-%%
-R = 8.314;        % Costante specifica del gas (J/kg*K), da definire correttamente per il propellente
+%% NOMINAL OPERATION
+
+% Dati del problema
+eps = 10;      % Rapporto tra le aree (ugello convergente-divergente)
+k = 1.4;       % Rapporto dei calori specifici
+Pc = 1e+5;    % Pressione in camera di combustione (Pa)
+
+alpha = 30;
+lambda = (1 + cos(alpha))/2;
+
+T = 5e-3; 
+
+% Funzione anonima per risolvere il rapporto tra le pressioni
+f = @(x) -1/eps + ((k+1)/2)^(1/(k-1)) * x^(1/k) * sqrt((k+1)/(k-1) * (1-(x)^((k-1)/k)));
+
+% Risoluzione per il rapporto di pressione x = Pe/Pc
+x = fsolve(f, 0.001);  % Stima iniziale bassa (tipico Pe/Pc è molto piccolo)
+
+% Calcolo della pressione di uscita
+Pe = x * Pc;
+
+% Parametri aggiuntivi (devono essere definiti prima dell'uso)
+R = 8.314;        % Costante specifica del gas (J/mol*K), da definire correttamente per il propellente
 Mmol = 0.028;   % Massa molare del gas (kg/mol), da definire correttamente
 Tc = 3000;      % Temperatura in camera di combustione (K), da definire
-k = 1.4;
-Ae =  2.673591011270363e-07;
-Ab =  1.261940759218272e-06;
 
-At_avg =  2.673591011270363e-08;
+% Calcolo della velocità di scarico
+ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) );
+CT = k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-(Pe/Pc))^((k-1)/k))+Pe/Pc*eps;
+At = T/Pc/CT;
+Ae = eps*At;
+m_dot = (T-Pe*Ae)/(ve*lambda);
+
+a_avg = a_avg*10^(-3-5*n_avg);
+a_std = a_std*10^(-3-5*n_avg);
+Ab = m_dot/(Pc^n_avg*a_avg*rho);
+
+r_t = sqrt(At/pi);
+r_e = sqrt(Ae/pi);
+r_in = sqrt(Ab/pi);
+L1 = (r_in-r_t)/tan(deg2rad(45));
+L2 = (r_e-r_t)/tan(deg2rad(30));
+L = L1+L2;
+
+
+
+%% MONTECARLO
+
+At_avg = At;
 a_stdt = At_avg*1e-5;
 
-N = 50;
+N = 120;
 alpha = 30;
 lambda = (1 + cos(alpha))/2;
 
 At_val = normrnd(At_avg, a_stdt, [N,1]);
 a_val = normrnd(a_avg, a_std, [N, 1]);
 n_val = normrnd(n_avg, n_std, [N, 1]);
-a_val = a_val.*10.^(-3-5*n_val);
 
 T_val=zeros(N,1);
 Pc_val=zeros(N,1);
@@ -127,11 +166,8 @@ for i=1:N
 	Pe = double(sol.Pe);
     x = Pe/Pc;
 
-	eq3 = m_dot == rho*Ab*Pc^n*a;
-    m_dot = double(vpasolve(eq3, m_dot));
-
-    eq4 = ve == sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (x)^((k-1)/k)));
-    ve = double(vpasolve(eq4, ve));
+	m_dot = rho*Ab*Pc^n*a;
+    ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (x)^((k-1)/k)));
 
     T_val(i)=m_dot*lambda*ve+Pe*Ae;
     Pc_val(i)=sol.Pc;
