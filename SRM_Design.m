@@ -81,6 +81,7 @@ Pc = 1e+5;    % Pressione in camera di combustione (Pa)
 
 alpha = 30;
 lambda = (1 + cos(alpha))/2;
+lambda=1;
 
 T = 5e-3; 
 
@@ -124,12 +125,10 @@ At_avg = At;
 a_stdt = At_avg*1e-5;
 
 N = 120;
-alpha = 30;
-lambda = (1 + cos(alpha))/2;
 
-At_val = normrnd(At_avg, a_stdt, [N,1]);
-a_val = normrnd(a_avg, a_std, [N, 1]);
-n_val = normrnd(n_avg, n_std, [N, 1]);
+At_val = normrnd(At_avg, 0, [N,1]);
+a_val = normrnd(a_avg, 0, [N, 1]);
+n_val = normrnd(n_avg, 0, [N, 1]);
 
 T_val=zeros(N,1);
 Pc_val=zeros(N,1);
@@ -159,7 +158,9 @@ for i=1:N
     % eq4 = m_dot == rho*Ab*Pc^n*a;
     % eq5 = 0 == -1/eps + ((k+1)/2)^(1/(k-1)) * x^(1/k) * sqrt((k+1)/(k-1) * (1-(x)^((k-1)/k)));
     
-	eq1 = rho*Ab/At*Pc^(n-1)*a*sqrt(2*k/(k-1)*R/Mmol*Tc*(1-x^((k-1)/k))) == k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-x^((k-1)/k)));
+    % PRECACLOLARE LE COSTANTI DI K
+
+	eq1 = rho*Ab/At*Pc^(n-1)*a*sqrt(R/Mmol*Tc) == k*sqrt((2/(k+1))^((k+1)/(k-1)));
 	eq2 = 1/eps == ((k+1)/2)^(1/(k-1))*x^(1/k)*sqrt((k+1)/(k-1)*(1-x^((k-1)/k)));
     sol=vpasolve([eq1, eq2], [Pc,Pe]);
 	Pc = double(sol.Pc);
