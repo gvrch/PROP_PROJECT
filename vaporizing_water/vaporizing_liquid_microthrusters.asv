@@ -1,0 +1,63 @@
+%% VAPORIZING LIQUID MICROTHRUSTER
+% Margi e Ludo 
+
+% CHECK: possibili migliorie
+% - k del vapore acqueo per valore più adatto a Tc(Q_dot)
+% - densità del vapore d'acqua rho_v(T)
+
+%%
+
+clc
+clear
+close all
+
+%% NOMINAL OPERATION
+
+% Dati del problema
+eps = 10;      % Rapporto tra le aree (ugello convergente-divergente)
+k = 1.327;       % Rapporto dei calori specifici
+Pc = 100000;    % Pressione in camera di combustione (Pa)
+R = 8.314;        % Costante specifica del gas (J/kg*K), da definire correttamente per il propellente
+Mmol = 0.028;   % Massa molare del gas (kg/mol), da definire correttamente
+rho_l = 1000;             % kg/m^3
+rho_v = 0.6;                
+Q_dot = 3;                  % W
+T = 5e-3;                   % N
+cp_l = 4186;                %J/kgK
+cp_v = 1910;                %J/kgK
+lambda = 2260;              %J/kg
+
+% Funzione anonima per risolvere il rapporto tra le pressioni
+f = @(x) -1/eps + ((k+1)/2)^(1/(k-1)) * x^(1/k) * sqrt((k+1)/(k-1) * (1-x^((k-1)/k)));
+
+% Risoluzione per il rapporto di pressione x = Pe/Pc
+x = fsolve(f, 0.001);  % Stima iniziale bassa (tipico Pe/Pc è molto piccolo)
+
+% Calcolo della pressione di uscita
+Pe = x * Pc;
+
+% Calcolo della velocità di scarico
+T_eb = 100 + 273; % K
+T_inj = 25 + 273.15; % K 
+     % Tc imponendo Q_dot e funzione di m_dot: ve di conseguenza
+Tc_fun = @(m_dot) (Q_dot-m_dot*cp_l*(T_eb-T_inj)-m_dot*lambda)/(m_dot*cp_v) + T_eb;
+ve_fun = @(m_dot) sqrt(2*k/(k-1) * R/Mmol * Tc_fun(m_dot) * (1 - (Pe/Pc)^((k-1)/k)));
+
+% Calcolo di area di gola e area di uscita
+CT = k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-(Pe/Pc))^((k-1)/k))+Pe/Pc*eps;
+At = T/Pc/CT;
+r_t = sqrt(At/pi)
+Ae = eps*At;
+
+% calcolo della m_dot
+f_m = @(m_dot) m_dot - (T-Pe*Ae)/ve_fun(m_dot);
+m_dot_sol = fsolve(f, 0.001);  % Stima iniziale bassa (tipico Pe/Pc è molto piccolo)
+
+% calcolo di tutto in funzione della m_dot trovata
+Tc_sol = Tc_fun(m_dot_sol); % (Q_dot-m_dot_sol*cp_l*(T_eb-T_inj)-m_dot_sol*lambda)/(m_dot_sol*cp_v) = -163.1115 AAAAAAAAAAAAAAAAAAAA
+
+ve_sol = ve_fun(m_dot_sol);
+Tc_sol-273.15;
+
+
+
