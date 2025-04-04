@@ -1,77 +1,97 @@
-%%
-clear all
-close all
 clc
+clear
 
-%%
-addpath 'CEAM 1.0.0.0'
+%Constants
 
-%%
-% x=CEA('problem','hp','equilibrium','o/f', 6,'case','rocket','p,bar', 200*1e-5,...
-% 'reactants',...
-% 'fuel','H2(L)', 'H', 2, 'h,kj/kg', 5000,'wt%',100, 't(k)', 300, ...
-% 'oxid','O2(L)', 'O', 2, 'h,kj/kg', 4000,'wt%',100,'t(k)',300,'output','massf', 'transport','end');
+R = 8.314; 
+g = 9.81;
 
-%% Definizione parametri
-k_p = 1;    % Coefficiente di perdita primaria
-k_v = 1.3;    % Coefficiente di perdita valvola
-k_in = 0.6;   % Coefficiente di ingresso
-c_star = 1600; % Velocità caratteristica del propellente (m/s)
-% m_dot_nom = 30; % Portata nominale (kg/s)
+%Initial conditions
 
-P_cc_nom = 14e5; % Pressione nominale in camera di combustione (Pa)
-A_t = 0.016; % Area ugello (m^2)
-A_tube_ox = 0.00042; % Area del tubo di alimentazione (m^2)
-rho = 1000; % Densità del propellente liquido (kg/m^3)
-tol = 1e-2; % Tolleranza convergenza
+T = 42e-3 % Thrust (N)
+Pc = 150000; % chamber pressure (Pa)
+Tc = 300; % chamber temperature (K)
+MM = 0.028 ; % kg/mol
+gamma = 1.4;
+eps = 4; % area ratio
+
+% Exit Pressure
+
+expansion = @(Pe) ((gamma + 1) / 2)^(1 / (gamma - 1)) * ...
+          (Pe / Pc)^(1 / gamma) * ...
+          sqrt((gamma + 1) / (gamma - 1) * (1 - (Pe / Pc)^((gamma - 1) / gamma))) - (1/eps);
+
+Pe = fsolve(expansion, 500) 
+
+% alpha = 30;
+% lambda = (1 + cos(alpha))/2;
+% lambda=1;
+% k = 1.4; 
+% 
+% 
+% aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
+% bb = 2/k;
+% cc = (k-1)/k;
+% 
+% fun = @(x) x^bb*(1-x^cc)-aa;
+% dfun = @(x) -x^(bb-1)*((cc+bb)*x^cc-bb);
+% 
+% c1 = 0;
+% c2 = 0.5;
+% tol = 1e-6;
+% err = tol + 1;
+% it = 0;
+% 
+% while (it < 3 && err > tol ) 
+%     it=it+1;
+%     x = (c2+c1)/2; %stima dello zero
+%     fc = fun(x);     
+%     err=abs(fc); 
+%     % scelta del nuovo estremo per l'eventuale ciclo successivo       
+%     if (fc*fun(c1) > 0)
+%           c1=x; 
+%     else 
+%           c2=x; 
+%     end
+% end
+% xv = x;
+% while (it< 5 && err> tol)
+%    dfx = dfun(xv);
+%    if dfx == 0
+%       error(' Arresto per azzeramento di dfun');
+%    else
+%       xn = xv - fun(xv)/dfx;
+%       err = abs(fun(xn));
+%       it = it+1;
+%       xv = xn;
+%    end
+% end
+% 
+% % Calcolo della pressione di uscita
+% Pe = xn * Pc
+% 
+% Area Throat
+At = (T/Pc)/(sqrt(2*(gamma^2/(gamma-1))*(2/(gamma+1))^((gamma+1)/(gamma-1)))*sqrt(1-(Pe/Pc)^((gamma-1)/gamma))+eps*(Pe-0)/Pc)
 
 
-%% Definizione nuovo punto di lavoro
+% Exit Velocity
 
-P_tank = 30e+5; % Nuova pressione nel serbatoio (Pa)
-P_cc = P_cc_nom;
-m_dot2 = 5;
-m_dot1 = 19;
-
-deltaP_vec = [];
-mdot_vec = [];
-m_ox = [];
+v_exit = sqrt(2*gamma/(gamma-1)*R/MM*Tc*(1-(Pe/Pc)^((gamma-1)/gamma)))
 
 
-for A_t = []
-   
-    for K_in=[]
-    m_dot = 5;
-    it = 0;
-
-    P_tank = 30e+5; % Nuova pressione nel serbatoio (Pa)
-    P_cc = P_cc_nom;
-    m_dot2 = 5;
-    m_dot1 = 19;
 
 
-    while(abs(m_dot2 - m_dot1) > tol && it < 1000)
-        it = it + 1;
+% Exit Area
+
+Ae = eps*At
+re=sqrt(Ae/pi)
+De=2*re
+% Mass Flow Rate
+
+m_dot=(T-Ae*(Pe-0))/v_exit
 
 
-        m_dot1 =  P_cc*A_t/c_star;
-        v  = m_dot1 /( A_tube* rho);
-        deltaP= 0.5*rho*v^2*(k_in + k_p + k_v);
-        P_cc = P_tank - deltaP;
-        
-        m_dot2= P_cc*A_t/c_star ;
-       
-        if it > 999
-            disp('Il calcolo non converge')
-        end   
+% Isp
 
-    end
-      
-    end
-end
+Isp = T/m_dot/g
 
-figure
-scatter(mdot_vec, deltaP_vec)
-
-figure
-plot(mdot_vec, deltaP_vec)
