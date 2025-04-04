@@ -75,9 +75,9 @@ clearvars -except a_avg a_std n_avg n_std rho
 %% NOMINAL OPERATION
 
 % Dati del problema
-eps = 10;      % Rapporto tra le aree (ugello convergente-divergente)
+eps = 10      % Rapporto tra le aree (ugello convergente-divergente)
 k = 1.4;       % Rapporto dei calori specifici
-Pc = 1e+5;    % Pressione in camera di combustione (Pa)
+Pc = 1e+5    % Pressione in camera di combustione (Pa)
 
 alpha = 30;
 lambda = (1 + cos(alpha))/2;
@@ -85,14 +85,47 @@ lambda=1;
 
 T = 5e-3; 
 
-% Funzione anonima per risolvere il rapporto tra le pressioni
-f = @(x) -1/eps + ((k+1)/2)^(1/(k-1)) * x^(1/k) * sqrt((k+1)/(k-1) * (1-(x)^((k-1)/k)));
 
-% Risoluzione per il rapporto di pressione x = Pe/Pc
-x = fsolve(f, 0.001);  % Stima iniziale bassa (tipico Pe/Pc è molto piccolo)
+aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
+bb = 2/k;
+cc = (k-1)/k;
+
+fun = @(x) x^bb*(1-x^cc)-aa;
+dfun = @(x) -x^(bb-1)*((cc+bb)*x^cc-bb);
+
+c1 = 0;
+c2 = 0.5;
+tol = 1e-6;
+err = tol + 1;
+it = 0;
+
+while (it < 3 && err > tol ) 
+    it=it+1;
+    x = (c2+c1)/2; %stima dello zero
+    fc = fun(x);     
+    err=abs(fc); 
+    % scelta del nuovo estremo per l'eventuale ciclo successivo       
+    if (fc*fun(c1) > 0)
+          c1=x; 
+    else 
+          c2=x; 
+    end
+end
+xv = x;
+while (it< 5 && err> tol)
+   dfx = dfun(xv);
+   if dfx == 0
+      error(' Arresto per azzeramento di dfun');
+   else
+      xn = xv - fun(xv)/dfx;
+      err = abs(fun(xn));
+      it = it+1;
+      xv = xn;
+   end
+end
 
 % Calcolo della pressione di uscita
-Pe = x * Pc;
+Pe = xn * Pc
 
 % Parametri aggiuntivi (devono essere definiti prima dell'uso)
 R = 8.314;        % Costante specifica del gas (J/mol*K), da definire correttamente per il propellente
@@ -100,11 +133,11 @@ Mmol = 0.028;   % Massa molare del gas (kg/mol), da definire correttamente
 Tc = 3000;      % Temperatura in camera di combustione (K), da definire
 
 % Calcolo della velocità di scarico
-ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) );
-CT = k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-(Pe/Pc))^((k-1)/k))+Pe/Pc*eps;
+ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) )
+CT = k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-(Pe/Pc)^((k-1)/k)))+Pe/Pc*eps;
 At = T/Pc/CT;
 Ae = eps*At;
-m_dot = (T-Pe*Ae)/(ve*lambda);
+m_dot = (T-Pe*Ae)/(ve*lambda)
 
 a_avg = a_avg*10^(-3-5*n_avg);
 a_std = a_std*10^(-3-5*n_avg);
@@ -122,34 +155,29 @@ L = L1+L2;
 %% MONTECARLO
 
 At_avg = At;
-a_stdt = At_avg*1e-5;
+At_std = At_avg*1e-5;
 
-N = 120;
+N = 10000;
 
-At_val = normrnd(At_avg, 0, [N,1]);
-a_val = normrnd(a_avg, 0, [N, 1]);
-n_val = normrnd(n_avg, 0, [N, 1]);
+DeltaV = 0.5; % [m/s]
+Mass = 4; % [kg]
+
+At_val = normrnd(At_avg, At_std, [N,1]);
+a_val = normrnd(a_avg, a_std, [N, 1]);
+n_val = normrnd(n_avg, n_std, [N, 1]);
 
 T_val=zeros(N,1);
 Pc_val=zeros(N,1);
 Pe_val=zeros(N,1);
 m_dot_val=zeros(N,1);
 ve_val=zeros(N,1);
+h_val=zeros(N,1);
 
 for i=1:N
-    
-    syms T Pc Pe m_dot ve positive
-    
-    assumeAlso(T,"real");
-    assumeAlso(Pc,"real");
-    assumeAlso(Pe,"real");
-    assumeAlso(m_dot,"real");
-    assumeAlso(ve,"real");
-    
     At=At_val(i);
     a=a_val(i);
     n=n_val(i);
-    x = Pe/Pc;
+    h=h_val(i);
     eps = Ae/At;
     % eq1 = T/(Pc*At)==k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1)))...
     %     *sqrt(1-(x)^((k-1)/k))+eps*x;
@@ -160,31 +188,73 @@ for i=1:N
     
     % PRECACLOLARE LE COSTANTI DI K
 
-	eq1 = rho*Ab/At*Pc^(n-1)*a*sqrt(R/Mmol*Tc) == k*sqrt((2/(k+1))^((k+1)/(k-1)));
-	eq2 = 1/eps == ((k+1)/2)^(1/(k-1))*x^(1/k)*sqrt((k+1)/(k-1)*(1-x^((k-1)/k)));
-    sol=vpasolve([eq1, eq2], [Pc,Pe]);
-	Pc = double(sol.Pc);
-	Pe = double(sol.Pe);
-    x = Pe/Pc;
+	% eq1 = rho*Ab/At*Pc^(n-1)*a*sqrt(R/Mmol*Tc) == sqrt(k*(2/(k+1))^((k+1)/(k-1)));
+	% eq2 = 1/eps == ((k+1)/2)^(1/(k-1))*x^(1/k)*sqrt((k+1)/(k-1)*(1-x^((k-1)/k)));
+    % sol=vpasolve([eq1, eq2], [Pc,Pe]);
+	% Pc = double(sol.Pc);
+	% Pe = double(sol.Pe);
+    % x = Pe/Pc;
+    K = sqrt(k*(2/(k+1))^((k+1)/(k-1))/R/Tc*Mmol)/rho/Ab;
+    Pc = (K*At/a)^(1/(n-1));
+    
+    aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
+    bb = 2/k;
+    cc = (k-1)/k;
+
+    fun = @(x) x^bb*(1-x^cc)-aa;
+    dfun = @(x) -x^(bb-1)*((cc+bb)*x^cc-bb);
+
+    c1 = 0;
+    c2 = 0.5;
+    tol = 1e-6;
+    err = tol + 1;
+    it = 0;
+
+    while (it < 3 && err > tol ) 
+        it=it+1;
+        x = (c2+c1)/2; %stima dello zero
+        fc = fun(x);     
+        err=abs(fc); 
+        % scelta del nuovo estremo per l'eventuale ciclo successivo       
+        if (fc*fun(c1) > 0)
+              c1=x; 
+        else 
+              c2=x; 
+        end
+    end
+    xv = x;
+    while (it< 5 && err> tol)
+       dfx = dfun(xv);
+       if dfx == 0
+          error(' Arresto per azzeramento di dfun');
+       else
+          xn = xv - fun(xv)/dfx;
+          err = abs(fun(xn));
+          it = it+1;
+          xv = xn;
+       end
+    end
+    Pe = xv*Pc;
+
+   
 
 	m_dot = rho*Ab*Pc^n*a;
-    ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (x)^((k-1)/k)));
+    ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k)));
 
     T_val(i)=m_dot*lambda*ve+Pe*Ae;
-    Pc_val(i)=sol.Pc;
-    Pe_val(i)=sol.Pe;
+    Pc_val(i)=Pc;
+    Pe_val(i)=Pe;
     m_dot_val(i)=m_dot;
     ve_val(i)=ve;
 
+    h(i)= a*Pc_val(i)^n*DeltaV/T_val(i)*Mass;
+
 end
 %%
-T_val=abs(T_val);
-Pc_val=abs(Pc_val);
-Pe_val=abs(Pe_val);
-m_dot_val=abs(m_dot_val);
-ve_val=abs(ve_val);
+
 
 for i=1:N
+
     T_avg(i)=mean(T_val(1:i));
     T_std(i)=std(T_val(1:i));
     Pc_avg(i)=mean(Pc_val(1:i));
@@ -195,25 +265,33 @@ for i=1:N
     m_dot_std(i)=std(m_dot_val(1:i));
     ve_avg(i)=mean(ve_val(1:i));
     ve_std(i)=std(ve_val(1:i));
+    h_avg(i)=mean(h_val(1:i));
+    h_std(i)=std(h_val(1:i));
 end
 
-subplot(2,5,1)
+%%
+
+subplot(2,6,1)
 plot(T_avg)
-subplot(2,5,6)
+subplot(2,6,7)
 plot(T_std)
-subplot(2,5,2)
+subplot(2,6,2)
 plot(Pc_avg)
-subplot(2,5,7)
+subplot(2,6,8)
 plot(Pc_std)
-subplot(2,5,3)
+subplot(2,6,3)
 plot(Pe_avg)
-subplot(2,5,8)
+subplot(2,6,9)
 plot(Pe_std)
-subplot(2,5,4)
+subplot(2,6,4)
 plot(m_dot_avg)
-subplot(2,5,9)
+subplot(2,6,10)
 plot(m_dot_std)
-subplot(2,5,5)
+subplot(2,6,5)
 plot(ve_avg)
-subplot(2,5,10)
+subplot(2,6,11)
 plot(ve_std)
+subplot(2,6,6)
+plot(h_avg)
+subplot(2,6,12)
+plot(h_std)
