@@ -8,12 +8,12 @@ g = 9.81;
 
 %Initial conditions
 
-T = 42e-3 % Thrust (N)
-Pc = 150000; % chamber pressure (Pa)
+T = 42e-3; % Thrust (N)
+Pc = 100000; % chamber pressure (Pa)
 Tc = 300; % chamber temperature (K)
 MM = 0.028 ; % kg/mol
 gamma = 1.4;
-eps = 10; % area ratio
+eps = 4; % area ratio
 
 % Exit Pressure
 
@@ -22,11 +22,13 @@ expansion = @(Pe) ((gamma + 1) / 2)^(1 / (gamma - 1)) * ...
           (Pe / Pc)^(1 / gamma) * ...
           sqrt((gamma + 1) / (gamma - 1) * (1 - (Pe / Pc)^((gamma - 1) / gamma))) - (1/eps);
 
-Pe = fsolve(expansion, 1000) 
+options = optimset('TolX',1e-10);
+Pe = fsolve(expansion, 10000, options) 
 
 % Area Throat
 At = (T/Pc)/(sqrt(2*(gamma^2/(gamma-1))*(2/(gamma+1))^((gamma+1)/(gamma-1)))*sqrt(1-(Pe/Pc)^((gamma-1)/gamma))+eps*(Pe-0)/Pc)
-
+rt=sqrt(At/pi)
+Dt=2*rt
 
 % Exit Velocity
 
@@ -49,6 +51,7 @@ m_dot=(T-Ae*(Pe-0))/v_exit
 
 Isp = T/m_dot/g
 
+c_star = At*Pc/m_dot
 
 % to-do:
 % nitrogen storage information, data on thruster everything
