@@ -21,13 +21,14 @@ Mass = 4;           % 4 U cubesat mass
 rho = 807;
 
 RN = R/MM;
+
 % feeding system
 k_p = 1.1;  % P drop coeff of the pipes
 k_v = 1.3;  % P drop valves
 k_inj = 0.6;    % P_drop injector
 
-A_p = 2e-3;
-A_v = 1e-3;
+A_p = 1e-3^2*pi;
+A_v = 0.5e-3^2*pi;
 r_inj = 250e-6;
 A_inj = r_inj^2*pi;
 
@@ -90,14 +91,14 @@ De=2*re;
 m_dot=(T-Ae*(Pe-0))/v_exit;
 
 % Isp
-Isp = T/m_dot/g;
+Isp_nom = T/m_dot/g;
 
 %cstar
 c_star = At*Pc/m_dot;
 
 %% Preliminary sizing
 % mass
-MR = exp(DeltaV/(Isp*g));
+MR = exp(DeltaV/(Isp_nom*g));
 M_N_used = Mass*(MR-1);
 
 % pressure losses
@@ -164,7 +165,7 @@ for ii = 1:N
         m_dot1 =  P_cc*A_tt/c_star;
         v  = m_dot1 /( A_p* rho);
         deltaP= 0.5*rho*v^2*k_tot;
-        P_cc = P_tank - deltaP;
+        P_cc = P_plen - deltaP;
         
         m_dot2= P_cc*A_tt/c_star ;
        
@@ -216,7 +217,7 @@ for ii = 1:N
    
     Pee = xn * P_cc;
 
-    v_e = sqrt(2*k/(k-1)*RN/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
+    v_e = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T(ii) =  m_dot1*v_e + Aee*Pee;
     Isp(ii) = T(ii)/(m_dot2*g);
     if ii > 1
@@ -232,6 +233,7 @@ end
 
 subplot(2,2,1)
 plot(T_avg)
+ylim[]
 title T_{avg}
 subplot(2,2,2)
 plot(T_std)

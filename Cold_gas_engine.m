@@ -128,13 +128,11 @@ N = 10000;
 rt_avg = sqrt(At/pi);
 rt_std = 5e-6;
 rt_val = normrnd(rt_avg, rt_std, [N,1]);
-rt_val = ones(N,1).*rt_avg;
 At_val = rt_val.^2.*pi;
 
 r_inj_std = 5e-6;       
 r_inj_avg = r_inj; 
 r_inj_val = normrnd(r_inj_avg, r_inj_std, [N,1]);
-r_inj_val = ones(N,1).*r_inj_avg;
 A_inj_val = r_inj_val.^2.*pi;
 
 K_tot_val = k_v*A_p/A_v + k_p + k_inj./A_inj_val*A_p;
@@ -142,7 +140,6 @@ K_tot_val = k_v*A_p/A_v + k_p + k_inj./A_inj_val*A_p;
 re_avg = sqrt(Ae/pi);
 re_std = 5e-6;
 re_val = normrnd(re_avg, re_std, [N,1]);
-re_val = ones(N,1).*re_avg;
 Ae_val = re_val.^2.*pi;
 
 toll = 1e-8;
@@ -165,7 +162,7 @@ for ii = 1:N
         m_dot1 =  P_cc*A_tt/c_star;
         v  = m_dot1 /( A_p* rho);
         deltaP= 0.5*rho*v^2*k_tot;
-        P_cc = P_tank - deltaP;
+        P_cc = P_plen - deltaP;
         
         m_dot2= P_cc*A_tt/c_star ;
        
@@ -217,7 +214,7 @@ for ii = 1:N
    
     Pee = xn * P_cc;
 
-    v_e = sqrt(2*k/(k-1)*RN/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
+    v_e = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T(ii) =  m_dot1*v_e + Aee*Pee;
     Isp(ii) = T(ii)/(m_dot2*g);
     if ii > 1
@@ -233,6 +230,7 @@ end
 
 subplot(2,2,1)
 plot(T_avg)
+ylim([0 0.01])
 title T_{avg}
 subplot(2,2,2)
 plot(T_std)
