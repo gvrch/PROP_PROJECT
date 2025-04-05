@@ -77,10 +77,10 @@ clearvars -except a_avg a_std n_avg n_std rho
 % Dati del problema
 eps = 10      % Rapporto tra le aree (ugello convergente-divergente)
 k = 1.4;       % Rapporto dei calori specifici
-Pc = 1e+5    % Pressione in camera di combustione (Pa)
+Pc = 1e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
 
 alpha = 30;
-lambda = (1 + cos(alpha))/2;
+lambda = (1 + cosd(alpha))/2;
 lambda=1;
 
 T = 5e-3; 
@@ -154,8 +154,10 @@ L = L1+L2;
 
 %% MONTECARLO
 
+% manca il valore esatto di incertezza
+At_std = (sqrt(At/pi)+0.001*1e-3)^2*pi-At;
 At_avg = At;
-At_std = At_avg*1e-5;
+% At_std = At_avg*1e-5;
 
 N = 10000;
 
@@ -172,6 +174,22 @@ Pe_val=zeros(N,1);
 m_dot_val=zeros(N,1);
 ve_val=zeros(N,1);
 h_val=zeros(N,1);
+m_prop =zeros(N,1);
+
+T_avg = zeros(N+1,1);
+T_std = zeros(N+1,1);
+Pc_avg = zeros(N+1,1);
+Pc_std = zeros(N+1,1);
+Pe_avg = zeros(N+1,1);
+Pe_std = zeros(N+1,1);
+m_dot_avg = zeros(N+1,1);
+m_dot_std = zeros(N+1,1);
+ve_avg = zeros(N+1,1);
+ve_std = zeros(N+1,1);
+h_avg = zeros(N+1,1);
+h_std = zeros(N+1,1);
+m_prop_avg = zeros(N+1,1);
+m_prop_std = zeros(N+1,1);
 
 for i=1:N
     At=At_val(i);
@@ -179,21 +197,21 @@ for i=1:N
     n=n_val(i);
     h=h_val(i);
     eps = Ae/At;
+
+    % PRECACLOLARE LE COSTANTI DI K
     % eq1 = T/(Pc*At)==k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1)))...
     %     *sqrt(1-(x)^((k-1)/k))+eps*x;
     % eq2 = T == m_dot*ve + Pe*Ae;
     % eq3 = ve == sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (x)^((k-1)/k)));
     % eq4 = m_dot == rho*Ab*Pc^n*a;
     % eq5 = 0 == -1/eps + ((k+1)/2)^(1/(k-1)) * x^(1/k) * sqrt((k+1)/(k-1) * (1-(x)^((k-1)/k)));
-    
-    % PRECACLOLARE LE COSTANTI DI K
-
 	% eq1 = rho*Ab/At*Pc^(n-1)*a*sqrt(R/Mmol*Tc) == sqrt(k*(2/(k+1))^((k+1)/(k-1)));
 	% eq2 = 1/eps == ((k+1)/2)^(1/(k-1))*x^(1/k)*sqrt((k+1)/(k-1)*(1-x^((k-1)/k)));
     % sol=vpasolve([eq1, eq2], [Pc,Pe]);
 	% Pc = double(sol.Pc);
 	% Pe = double(sol.Pe);
     % x = Pe/Pc;
+
     K = sqrt(k*(2/(k+1))^((k+1)/(k-1))/R/Tc*Mmol)/rho/Ab;
     Pc = (K*At/a)^(1/(n-1));
     
@@ -236,8 +254,6 @@ for i=1:N
     end
     Pe = xv*Pc;
 
-   
-
 	m_dot = rho*Ab*Pc^n*a;
     ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k)));
 
@@ -247,26 +263,24 @@ for i=1:N
     m_dot_val(i)=m_dot;
     ve_val(i)=ve;
 
-    h(i)= a*Pc_val(i)^n*DeltaV/T_val(i)*Mass;
+    h_val(i)= a*Pc_val(i)^n*DeltaV/T_val(i)*Mass;
+    m_prop(i) = h_val(i)*Ab*rho;
+    
+    T_avg(i+1)=(T_avg(i)*(i-1)+T_val(i))/i;
+    T_std(i+1)=std(T_val(1:i));
+    Pc_avg(i+1)=(Pc_avg(i)*(i-1)+Pc_val(i))/i;
+    Pc_std(i+1)=std(Pc_val(1:i));
+    Pe_avg(i+1)=(Pe_avg(i)*(i-1)+Pe_val(i))/i;
+    Pe_std(i+1)=std(Pe_val(1:i));
+    m_dot_avg(i+1)=(m_dot_avg(i)*(i-1)+m_dot_val(i))/i;
+    m_dot_std(i+1)=std(m_dot_val(1:i));
+    ve_avg(i+1)=(ve_avg(i)*(i-1)+ve_val(i))/i;
+    ve_std(i+1)=std(ve_val(1:i));
+    h_avg(i+1)=(h_avg(i)*(i-1)+h_val(i))/i;
+    h_std(i+1)=std(h_val(1:i));
+    m_prop_avg(i+1)=(m_prop_avg(i)*(i-1)+m_prop(i))/i;
+    m_prop_std(i+1)=std(m_prop(1:i));
 
-end
-%%
-
-
-for i=1:N
-
-    T_avg(i)=mean(T_val(1:i));
-    T_std(i)=std(T_val(1:i));
-    Pc_avg(i)=mean(Pc_val(1:i));
-    Pc_std(i)=std(Pc_val(1:i));
-    Pe_avg(i)=mean(Pe_val(1:i));
-    Pe_std(i)=std(Pe_val(1:i));
-    m_dot_avg(i)=mean(m_dot_val(1:i));
-    m_dot_std(i)=std(m_dot_val(1:i));
-    ve_avg(i)=mean(ve_val(1:i));
-    ve_std(i)=std(ve_val(1:i));
-    h_avg(i)=mean(h_val(1:i));
-    h_std(i)=std(h_val(1:i));
 end
 
 %%
