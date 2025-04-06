@@ -11,7 +11,7 @@ g = 9.81;
 %Initial conditions
 
 T = 5e-3;           % Thrust (N)
-Pc = 100000;        % chamber pressure (Pa) 1bar-4bar
+Pc = 200000;        % chamber pressure (Pa) 1bar-4bar
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
@@ -74,6 +74,9 @@ end
 % Calcolo della pressione di uscita
 Pe = xn * Pc;
 
+% temp in exit
+Te = Tc*(Pe/Pc)^((k-1)/k)
+
 % Area Throat
 At = (T/Pc)/(sqrt(2*(k^2/(k-1))*(2/(k+1))^((k+1)/(k-1)))*sqrt(1-(Pe/Pc)^((k-1)/k))+eps*(Pe-0)/Pc);
 rt=sqrt(At/pi);
@@ -109,11 +112,6 @@ P_plen = Pc + Delta_P_plen;
 P_f = Pc + Delta_P_tot;
 P_f = P_f*1.2;
 
-% imposed volume of tank
-%V_tank = 1e-4; % thesis Cold_gas Marcus lore
-%M_N_residual = V_tank*P_f/(R*Tc); 
-%P_tank = (M_N_residual+M_N_used)*R*Tc/V_tank;
-
 V_plen = M_N_used*RN*Tc/P_plen;
 
 eq =@(V_tank) V_tank.*P_f./RN./Tc + M_N_used - P_f.*P_plen.*V_plen./RN./Tc.*k./(2.*P_f+M_N_used.*RN*Tc./V_tank);
@@ -144,7 +142,18 @@ Ae_val = re_val.^2.*pi;
 
 toll = 1e-8;
 
-T = [];
+T = zeros(N,1);
+T_avg = zeros(N,1);
+T_std = zeros(N,1);
+Isp = zeros(N,1);
+Isp_avg = zeros(N,1);
+Isp_std = zeros(N,1);
+P_c_mc = zeros(N,1);
+P_c_mc_avg = zeros(N,1);
+P_c_mc_std = zeros(N,1);
+m_dot_mc = zeros(N,1);
+m_dot_mc_avg = zeros(N,1);
+m_dot_mc_std = zeros(N,1);
 for ii = 1:N
     
     A_tt  = At_val(ii);
@@ -214,18 +223,26 @@ for ii = 1:N
    
     Pee = xn * P_cc;
 
+    P_c_mc(ii) = P_cc;
+    m_dot_mc(ii) = m_dot2;
     v_e = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T(ii) =  m_dot1*v_e + Aee*Pee;
     Isp(ii) = T(ii)/(m_dot2*g);
     if ii > 1
         T_avg(ii) = T_avg(ii-1) + 1/ii*(T(ii) - T_avg(ii-1));
         Isp_avg(ii) = Isp_avg(ii-1) + 1/ii*(Isp(ii) - Isp_avg(ii-1));
+        P_c_mc_avg(ii) = P_c_mc(ii-1) + 1/ii*(P_c_mc(ii) - P_c_mc_avg(ii-1));
+        m_dot_mc_avg(ii) = m_dot_mc_avg(ii-1) + 1/ii*(m_dot_mc(ii) - m_dot_mc_avg(ii-1));
     else
         T_avg(ii) = T(ii);
         Isp_avg(ii) = Isp(ii);
+        P_c_mc_avg(ii) = P_c_mc(ii);
+        m_dot_mc_avg(ii) = m_dot_mc(ii);
     end
     T_std(ii) = std(T(1:ii));
     Isp_std(ii) = std(Isp(1:ii));
+    P_c_mc_std(ii) = std(P_c_mc(1:ii));
+    m_dot_mc_std(ii) = std(m_dot_mc(1:ii));
 end
 
 subplot(2,2,1)
@@ -241,3 +258,28 @@ title Isp_{avg}
 subplot(2,2,4)
 plot(Isp_std)
 title Isp_{std}
+
+%% final sizing after montecarlo
+% data from montecarlo
+Isp_w = Isp_avg(end) - 3*Isp_std(end);
+P_c_w = P_c_mc_avg(end) - 3*P_c_mc_std(end);
+m_dot_w = m_dot_mc_avg(end) - 3*m_dot_mc_std(end);
+
+MR = exp(DeltaV/(Isp_w*g));
+M_N_used = Mass*(MR-1);
+
+% pressure losses
+v_p = m_dot_w/(rho*A_p);
+Delta_P_tot_w = 0.5*rho*v_p^2*(k_p + A_p/A_v*k_v + A_p/A_inj*k_inj);
+Delta_P_plen_w = 0.5*rho*v_p^2*A_p/A_inj*k_inj;
+P_plen_w = P_c_w + Delta_P_plen_w;
+P_f_w = P_c_w + Delta_P_tot_w;
+P_f_w = P_f_w*1.2;
+
+V_plen = M_N_used*RN*Tc/P_plen_w;
+
+eq =@(V_tank) V_tank.*P_f./RN./Tc + M_N_used - P_f.*P_plen_w.*V_plen./RN./Tc.*k./(2.*P_f+M_N_used.*RN*Tc./V_tank);
+
+V_tank_w = fsolve(eq,1e-4);
+P_tank_w = (M_N_used + P_f_w*V_tank_w/RN/Tc)*RN*Tc/V_tank_w;
+M_N_tot = M_N_used + P_f_w*V_tank_w/RN/Tc;
