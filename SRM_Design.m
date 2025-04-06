@@ -1,5 +1,6 @@
 clear
 clc
+close all
 
 codes = 2438:2446;
 trigger_action = 0.05; % 5%
@@ -81,10 +82,11 @@ Pc = 1e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATUR
 
 alpha = 30;
 lambda = (1 + cosd(alpha))/2;
-lambda=1;
+% lambda=1;
 
 T = 5e-3; 
-
+DeltaV = 0.5; % [m/s]
+Mass = 4; % [kg]
 
 aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
 bb = 2/k;
@@ -142,18 +144,10 @@ m_dot = (T-Pe*Ae)/(ve*lambda)
 a_avg = a_avg*10^(-3-5*n_avg);
 a_std = a_std*10^(-3-5*n_avg);
 Ab = m_dot/(Pc^n_avg*a_avg*rho);
-
-r_t = sqrt(At/pi);
-r_e = sqrt(Ae/pi);
-r_in = sqrt(Ab/pi);
-L1 = (r_in-r_t)/tan(deg2rad(45));
-L2 = (r_e-r_t)/tan(deg2rad(30));
-L = L1+L2;
-
-
+h = a_avg*Pc^n_avg*DeltaV/T*Mass;
 
 %% MONTECARLO
-N = 10000;
+N = 20000;
 
 % manca il valore esatto di incertezza
 At_std = (sqrt(At/pi)+0.001*1e-3)^2*pi-At;
@@ -161,9 +155,10 @@ At_avg = At;
 Ae_std = (sqrt(Ae/pi)+0.001*1e-3)^2*pi-Ae;
 Ae_avg = Ae;
 
-
-DeltaV = 0.5; % [m/s]
-Mass = 4; % [kg]
+% At_std = 0;
+% Ae_std = 0;
+% a_std = 0;
+% n_std = 0;
 
 At_val = normrnd(At_avg, At_std, [N,1]);
 Ae_val = normrnd(Ae_avg, Ae_std, [N,1]);
@@ -194,12 +189,11 @@ m_prop_avg = zeros(N+1,1);
 m_prop_std = zeros(N+1,1);
 
 for i=1:N
-    At=At_val(i);
-    Ae=At_val(i);
-    a=a_val(i);
-    n=n_val(i);
-    h=h_val(i);
-    eps = Ae/At;
+    At_mc=At_val(i);
+    Ae_mc=Ae_val(i);
+    a_mc=a_val(i);
+    n_mc=n_val(i);
+    eps_mc = Ae_mc/At_mc;
 
     % PRECACLOLARE LE COSTANTI DI K
     % eq1 = T/(Pc*At)==k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1)))...
@@ -216,9 +210,9 @@ for i=1:N
     % x = Pe/Pc;
 
     K = sqrt(k*(2/(k+1))^((k+1)/(k-1))/R/Tc*Mmol)/rho/Ab;
-    Pc = (K*At/a)^(1/(n-1));
+    Pc = (K*At_mc/a_mc/lambda)^(1/(n_mc-1));
     
-    aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
+    aa = 1/eps_mc^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
     bb = 2/k;
     cc = (k-1)/k;
 
@@ -257,16 +251,16 @@ for i=1:N
     end
     Pe = xv*Pc;
 
-	m_dot = rho*Ab*Pc^n*a;
+	m_dot = rho*Ab*Pc^n_mc*a_mc;
     ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k)));
 
-    T_val(i)=m_dot*lambda*ve+Pe*Ae;
+    T_val(i)=m_dot*lambda*ve+Pe*Ae_mc;
     Pc_val(i)=Pc;
     Pe_val(i)=Pe;
     m_dot_val(i)=m_dot;
     ve_val(i)=ve;
 
-    h_val(i)= a*Pc_val(i)^n*DeltaV/T_val(i)*Mass;
+    h_val(i)= a_mc*Pc_val(i)^n_mc*DeltaV/T_val(i)*Mass;
     m_prop(i) = h_val(i)*Ab*rho;
     
     T_avg(i+1)=(T_avg(i)*(i-1)+T_val(i))/i;
@@ -312,3 +306,25 @@ subplot(2,6,6)
 plot(h_avg)
 subplot(2,6,12)
 plot(h_std)
+
+%% Array Sizing
+
+wall_th = 1e-3;
+d_b = sqrt(Ab/pi)*2
+d_t = sqrt(At/pi)*2
+d_e = sqrt(Ae/pi)*2
+d_max = max([d_b, d_e]);
+
+N_side = round(sqrt((h+5*h_std(end))/1e-3))
+N_thrusters = N_side^2
+
+L_plate = (d_max + wall_th)*N_side + wall_th
+
+r_b = d_b/2;
+r_t = d_t/2;
+r_e = d_e/2;
+L_conv = (r_b-r_t)/tan(deg2rad(45))
+L_div = (r_e-r_t)/tan(deg2rad(30))
+L = L_conv+L_div
+
+h_prop = (h+5*h_std(end))/N_thrusters
