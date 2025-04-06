@@ -153,18 +153,20 @@ L = L1+L2;
 
 
 %% MONTECARLO
+N = 10000;
 
 % manca il valore esatto di incertezza
 At_std = (sqrt(At/pi)+0.001*1e-3)^2*pi-At;
 At_avg = At;
-% At_std = At_avg*1e-5;
+Ae_std = (sqrt(Ae/pi)+0.001*1e-3)^2*pi-Ae;
+Ae_avg = Ae;
 
-N = 10000;
 
 DeltaV = 0.5; % [m/s]
 Mass = 4; % [kg]
 
 At_val = normrnd(At_avg, At_std, [N,1]);
+Ae_val = normrnd(Ae_avg, Ae_std, [N,1]);
 a_val = normrnd(a_avg, a_std, [N, 1]);
 n_val = normrnd(n_avg, n_std, [N, 1]);
 
@@ -193,6 +195,7 @@ m_prop_std = zeros(N+1,1);
 
 for i=1:N
     At=At_val(i);
+    Ae=At_val(i);
     a=a_val(i);
     n=n_val(i);
     h=h_val(i);
