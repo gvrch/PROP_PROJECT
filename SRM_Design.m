@@ -76,9 +76,9 @@ clearvars -except a_avg a_std n_avg n_std rho
 %% NOMINAL OPERATION
 
 % Dati del problema
-eps = 10      % Rapporto tra le aree (ugello convergente-divergente)
-k = 1.4;       % Rapporto dei calori specifici
-Pc = 1e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
+eps = 2.6      % Rapporto tra le aree (ugello convergente-divergente)
+k = 1.21;       % Rapporto dei calori specifici
+Pc = 5e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
 
 alpha = 30;
 lambda = (1 + cosd(alpha))/2;
@@ -132,7 +132,7 @@ Pe = xn * Pc
 % Parametri aggiuntivi (devono essere definiti prima dell'uso)
 R = 8.314;        % Costante specifica del gas (J/mol*K), da definire correttamente per il propellente
 Mmol = 0.028;   % Massa molare del gas (kg/mol), da definire correttamente
-Tc = 3000;      % Temperatura in camera di combustione (K), da definire
+Tc = 3070;      % Temperatura in camera di combustione (K), da definire
 
 % Calcolo della velocità di scarico
 ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) )
@@ -145,6 +145,8 @@ a_avg = a_avg*10^(-3-5*n_avg);
 a_std = a_std*10^(-3-5*n_avg);
 Ab = m_dot/(Pc^n_avg*a_avg*rho);
 h = a_avg*Pc^n_avg*DeltaV/T*Mass;
+
+T_g = Tc/(1+ (k-1)/2)
 
 %% MONTECARLO
 N = 20000;
@@ -162,8 +164,8 @@ Ae_avg = Ae;
 
 At_val = normrnd(At_avg, At_std, [N,1]);
 Ae_val = normrnd(Ae_avg, Ae_std, [N,1]);
-a_val = normrnd(a_avg, a_std, [N, 1]);
-n_val = normrnd(n_avg, n_std, [N, 1]);
+a_val =  normrnd(a_avg, a_std, [N, 1]);
+n_val =  normrnd(n_avg, n_std, [N, 1]);
 
 T_val=zeros(N,1);
 Pc_val=zeros(N,1);
