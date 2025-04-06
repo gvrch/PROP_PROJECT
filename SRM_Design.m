@@ -152,28 +152,27 @@ T_g = Tc/(1+ (k-1)/2)
 N = 20000;
 
 % manca il valore esatto di incertezza
+Ab_std = (sqrt(Ab/pi)+0.001*1e-3)^2*pi-Ab;
+Ab_avg = Ab;
 At_std = (sqrt(At/pi)+0.001*1e-3)^2*pi-At;
 At_avg = At;
 Ae_std = (sqrt(Ae/pi)+0.001*1e-3)^2*pi-Ae;
 Ae_avg = Ae;
 
-% At_std = 0;
-% Ae_std = 0;
-% a_std = 0;
-% n_std = 0;
-
+Ab_val = normrnd(Ab_avg, Ab_std, [N,1]);
 At_val = normrnd(At_avg, At_std, [N,1]);
 Ae_val = normrnd(Ae_avg, Ae_std, [N,1]);
 a_val =  normrnd(a_avg, a_std, [N, 1]);
 n_val =  normrnd(n_avg, n_std, [N, 1]);
 
-T_val=zeros(N,1);
-Pc_val=zeros(N,1);
-Pe_val=zeros(N,1);
-m_dot_val=zeros(N,1);
-ve_val=zeros(N,1);
-h_val=zeros(N,1);
-m_prop =zeros(N,1);
+T_val = zeros(N,1);
+Pc_val = zeros(N,1);
+Pe_val = zeros(N,1);
+m_dot_val = zeros(N,1);
+ve_val = zeros(N,1);
+h_val = zeros(N,1);
+m_prop = zeros(N,1);
+Isp_val = zeros(N,1);
 
 T_avg = zeros(N+1,1);
 T_std = zeros(N+1,1);
@@ -189,13 +188,16 @@ h_avg = zeros(N+1,1);
 h_std = zeros(N+1,1);
 m_prop_avg = zeros(N+1,1);
 m_prop_std = zeros(N+1,1);
+Isp_avg = zeros(N+1,1);
+Isp_std = zeros(N+1,1);
 
 for i=1:N
-    At_mc=At_val(i);
-    Ae_mc=Ae_val(i);
-    a_mc=a_val(i);
-    n_mc=n_val(i);
-    eps_mc = Ae_mc/At_mc;
+    Ab=Ab_val(i);
+    At=At_val(i);
+    Ae=Ae_val(i);
+    a=a_val(i);
+    n=n_val(i);
+    eps = Ae/At;
 
     % PRECACLOLARE LE COSTANTI DI K
     % eq1 = T/(Pc*At)==k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1)))...
@@ -212,9 +214,9 @@ for i=1:N
     % x = Pe/Pc;
 
     K = sqrt(k*(2/(k+1))^((k+1)/(k-1))/R/Tc*Mmol)/rho/Ab;
-    Pc = (K*At_mc/a_mc/lambda)^(1/(n_mc-1));
+    Pc = (K*At/a/lambda)^(1/(n-1));
     
-    aa = 1/eps_mc^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
+    aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
     bb = 2/k;
     cc = (k-1)/k;
 
@@ -253,18 +255,18 @@ for i=1:N
     end
     Pe = xv*Pc;
 
-	m_dot = rho*Ab*Pc^n_mc*a_mc;
+	m_dot = rho*Ab*Pc^n*a;
     ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k)));
 
-    T_val(i)=m_dot*lambda*ve+Pe*Ae_mc;
+    T_val(i)=m_dot*lambda*ve+Pe*Ae;
     Pc_val(i)=Pc;
     Pe_val(i)=Pe;
     m_dot_val(i)=m_dot;
     ve_val(i)=ve;
-
-    h_val(i)= a_mc*Pc_val(i)^n_mc*DeltaV/T_val(i)*Mass;
+    Isp_val(i) = T_val(i)/m_dot_val(i)/9.80665;
+    h_val(i)= a*Pc_val(i)^n*DeltaV/T_val(i)*Mass;
     m_prop(i) = h_val(i)*Ab*rho;
-    
+
     T_avg(i+1)=(T_avg(i)*(i-1)+T_val(i))/i;
     T_std(i+1)=std(T_val(1:i));
     Pc_avg(i+1)=(Pc_avg(i)*(i-1)+Pc_val(i))/i;
@@ -279,35 +281,39 @@ for i=1:N
     h_std(i+1)=std(h_val(1:i));
     m_prop_avg(i+1)=(m_prop_avg(i)*(i-1)+m_prop(i))/i;
     m_prop_std(i+1)=std(m_prop(1:i));
-
+    Isp_avg(i+1)=(Isp_avg(i)*(i-1)+Isp_val(i))/i;
+    Isp_std(i+1)=std(Isp_val(1:i));
 end
 
-%%
-
-subplot(2,6,1)
+%% PLOTS
+subplot(2,7,1)
 plot(T_avg)
-subplot(2,6,7)
+subplot(2,7,8)
 plot(T_std)
-subplot(2,6,2)
+subplot(2,7,2)
 plot(Pc_avg)
-subplot(2,6,8)
+subplot(2,7,9)
 plot(Pc_std)
-subplot(2,6,3)
+subplot(2,7,3)
 plot(Pe_avg)
-subplot(2,6,9)
+subplot(2,7,10)
 plot(Pe_std)
-subplot(2,6,4)
+subplot(2,7,4)
 plot(m_dot_avg)
-subplot(2,6,10)
+subplot(2,7,11)
 plot(m_dot_std)
-subplot(2,6,5)
+subplot(2,7,5)
 plot(ve_avg)
-subplot(2,6,11)
+subplot(2,7,12)
 plot(ve_std)
-subplot(2,6,6)
+subplot(2,7,6)
 plot(h_avg)
-subplot(2,6,12)
+subplot(2,7,13)
 plot(h_std)
+subplot(2,7,7)
+plot(Isp_avg)
+subplot(2,7,14)
+plot(Isp_std)
 
 %% Array Sizing
 

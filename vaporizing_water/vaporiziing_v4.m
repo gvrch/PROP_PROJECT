@@ -131,8 +131,8 @@ for i = 1:length(Q_dot)
     Isp(i,2) = T/(m_dot(i,1)*g);
 
     % Injection Area
-    A_inj(i,1) = m_dot(i,1)/(Cd*2*sqrt(dP_inj*Pc*rho_l));
-    A_inj(i,2) = m_dot(i,2)/(Cd*2*sqrt(dP_inj*Pc*rho_l));
+    A_inj(i,1) = m_dot(i,1)/(Cd*sqrt(2*dP_inj*Pc*rho_l));
+    A_inj(i,2) = m_dot(i,2)/(Cd*sqrt(2*dP_inj*Pc*rho_l));
 end
 
 %% Compute specific impulse
@@ -203,5 +203,5 @@ ylabel('Injection Area [m^2]');
 legend('Solution #1','Solution #2');
 
 % Nozzle
-figure
+% figure
 
