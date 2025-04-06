@@ -11,7 +11,7 @@ g = 9.81;
 %Initial conditions
 
 T = 5e-3;           % Thrust (N)
-Pc = 200000;        % chamber pressure (Pa) 1bar-4bar
+Pc = 100000;        % chamber pressure (Pa) 1bar-4bar
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
@@ -27,12 +27,15 @@ k_p = 1.1;  % P drop coeff of the pipes
 k_v = 1.3;  % P drop valves
 k_inj = 0.6;    % P_drop injector
 
+% from paper but to be fixed
 A_p = 1e-3^2*pi;
 A_v = 0.5e-3^2*pi;
 r_inj = 250e-6;
 A_inj = r_inj^2*pi;
 
 %% Nominal Design
+
+
 aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
 bb = 2/k;
 cc = (k-1)/k;
@@ -91,33 +94,33 @@ re=sqrt(Ae/pi);
 De=2*re;
 
 % Mass Flow Rate
-m_dot=(T-Ae*(Pe-0))/v_exit;
+m_dot_nom=(T-Ae*(Pe-0))/v_exit;
 
 % Isp
-Isp_nom = T/m_dot/g;
+Isp_nom = T/m_dot_nom/g;
 
 %cstar
-c_star = At*Pc/m_dot;
+c_star = At*Pc/m_dot_nom;
 
 %% Preliminary sizing
 % mass
-MR = exp(DeltaV/(Isp_nom*g));
-M_N_used = Mass*(MR-1);
+MR_nom = exp(DeltaV/(Isp_nom*g));
+M_N_used_nom = Mass*(MR_nom-1);
 
 % pressure losses
-v_p = m_dot/(rho*A_p);
-Delta_P_tot = 0.5*rho*v_p^2*(k_p + A_p/A_v*k_v + A_p/A_inj*k_inj);
-Delta_P_plen = 0.5*rho*v_p^2*A_p/A_inj*k_inj;
-P_plen = Pc + Delta_P_plen;
-P_f = Pc + Delta_P_tot;
-P_f = P_f*1.2;
+v_p_nom = m_dot_nom/(rho*A_p);
+Delta_P_tot_nom = 0.5*rho*v_p_nom^2*(k_p + A_p/A_v*k_v + A_p/A_inj*k_inj);
+Delta_P_plen_nom = 0.5*rho*v_p_nom^2*A_p/A_inj*k_inj;
+P_plen_nom = Pc + Delta_P_plen_nom;
+P_f_nom = Pc + Delta_P_tot_nom;
+P_f_nom = P_f_nom*1.2;
 
-V_plen = M_N_used*RN*Tc/P_plen;
+V_plen_nom = M_N_used_nom*RN*Tc/P_plen_nom;
 
-eq =@(V_tank) V_tank.*P_f./RN./Tc + M_N_used - P_f.*P_plen.*V_plen./RN./Tc.*k./(2.*P_f+M_N_used.*RN*Tc./V_tank);
-
-V_tank = fsolve(eq,1e-4);
-P_tank = (M_N_used + P_f*V_tank/RN/Tc)*RN*Tc/V_tank;
+M_res_nom   = -(M_N_used_nom*RN*Tc - P_plen_nom*V_plen_nom*k)/(2*RN*Tc);
+P_tank_nom  = -(P_f_nom*(M_N_used_nom*RN*Tc + P_plen_nom*V_plen_nom*k))/(M_N_used_nom*RN*Tc - P_plen_nom*V_plen_nom*k);
+V_tank_nom  = -(M_N_used_nom*RN*Tc - P_plen_nom*V_plen_nom*k)/(2*P_f_nom);
+M_N_tot_nom = M_res_nom + M_N_used_nom;
 
 %% Montecarlo
 
@@ -142,18 +145,7 @@ Ae_val = re_val.^2.*pi;
 
 toll = 1e-8;
 
-T = zeros(N,1);
-T_avg = zeros(N,1);
-T_std = zeros(N,1);
-Isp = zeros(N,1);
-Isp_avg = zeros(N,1);
-Isp_std = zeros(N,1);
-P_c_mc = zeros(N,1);
-P_c_mc_avg = zeros(N,1);
-P_c_mc_std = zeros(N,1);
-m_dot_mc = zeros(N,1);
-m_dot_mc_avg = zeros(N,1);
-m_dot_mc_std = zeros(N,1);
+
 for ii = 1:N
     
     A_tt  = At_val(ii);
@@ -171,7 +163,7 @@ for ii = 1:N
         m_dot1 =  P_cc*A_tt/c_star;
         v  = m_dot1 /( A_p* rho);
         deltaP= 0.5*rho*v^2*k_tot;
-        P_cc = P_plen - deltaP;
+        P_cc = P_plen_nom - deltaP;
         
         m_dot2= P_cc*A_tt/c_star ;
        
@@ -227,24 +219,64 @@ for ii = 1:N
     m_dot_mc(ii) = m_dot2;
     v_e = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T(ii) =  m_dot1*v_e + Aee*Pee;
-    Isp(ii) = T(ii)/(m_dot2*g);
+    Isp_mc(ii) = T(ii)/(m_dot2*g);
+
+    % mass
+    MR_mc = exp(DeltaV/(Isp_mc(ii)*g));
+    M_N_used_mc = Mass*(MR_mc-1);
+
+    % pressure losses
+    v_p_mc = m_dot_mc(ii)/(rho*A_p);
+    Delta_P_tot_mc = 0.5*rho*v_p_mc^2*(k_p + A_p/A_v*k_v + A_p/A_inj*k_inj);
+    Delta_P_plen_mc = 0.5*rho*v_p_mc^2*A_p/A_inj*k_inj;
+    P_f_mc = Pc + Delta_P_tot_mc;
+    P_f_mc = P_f_mc*1.2;
+    
+    V_plen_mc = M_N_used_mc*RN*Tc/P_plen_nom;
+    
+    M_res_mc(ii)   = -(M_N_used_mc*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*RN*Tc);
+    P_tank_mc(ii)  = -(P_f_mc*(M_N_used_mc*RN*Tc + P_plen_nom*V_plen_mc*k))/(M_N_used_mc*RN*Tc - P_plen_nom*V_plen_mc*k);
+    V_tank_mc(ii)  = -(M_N_used_mc*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*P_f_mc);
+    M_N_tot_mc(ii) = M_res_mc(ii) + M_N_used_mc;
+
     if ii > 1
         T_avg(ii) = T_avg(ii-1) + 1/ii*(T(ii) - T_avg(ii-1));
-        Isp_avg(ii) = Isp_avg(ii-1) + 1/ii*(Isp(ii) - Isp_avg(ii-1));
+        Isp_avg(ii) = Isp_avg(ii-1) + 1/ii*(Isp_mc(ii) - Isp_avg(ii-1));
+
         P_c_mc_avg(ii) = P_c_mc(ii-1) + 1/ii*(P_c_mc(ii) - P_c_mc_avg(ii-1));
         m_dot_mc_avg(ii) = m_dot_mc_avg(ii-1) + 1/ii*(m_dot_mc(ii) - m_dot_mc_avg(ii-1));
+        M_N_tot_avg(ii) = M_N_tot_avg(ii-1) + 1/ii*(M_N_tot_mc(ii) - M_N_tot_avg(ii-1));
+
+        P_tank_avg(ii) = P_tank_avg(ii-1) + 1/ii*(P_tank_mc(ii) - P_tank_avg(ii-1));
+        V_tank_avg(ii) = V_tank_avg(ii-1) + 1/ii*(V_tank_mc(ii) - V_tank_avg(ii-1));
     else
         T_avg(ii) = T(ii);
-        Isp_avg(ii) = Isp(ii);
+        Isp_avg(ii) = Isp_mc(ii);
+
         P_c_mc_avg(ii) = P_c_mc(ii);
         m_dot_mc_avg(ii) = m_dot_mc(ii);
+        M_N_tot_avg(ii) = M_N_tot_mc(ii);
+        
+        P_tank_avg(ii) = P_tank_mc(ii);
+        V_tank_avg(ii) = V_tank_mc(ii);
     end
     T_std(ii) = std(T(1:ii));
-    Isp_std(ii) = std(Isp(1:ii));
-    P_c_mc_std(ii) = std(P_c_mc(1:ii));
+    Isp_std(ii) = std(Isp_mc(1:ii));
+
+    P_c_mc_std(ii)   = std(P_c_mc(1:ii));
     m_dot_mc_std(ii) = std(m_dot_mc(1:ii));
+    M_N_tot_std(ii)  = std(M_N_tot_mc(1:ii));
+
+    P_tank_std(ii)   = std(P_tank_mc(1:ii));
+    V_tank_std(ii)   = std(V_tank_mc(1:ii));
 end
 
+P_tank_w = P_tank_avg(end) - 3*P_tank_std(end)
+V_tank_w = V_tank_avg(end) - 3*V_tank_std(end)
+
+
+
+figure 
 subplot(2,2,1)
 plot(T_avg)
 ylim([0 0.01])
@@ -259,27 +291,16 @@ subplot(2,2,4)
 plot(Isp_std)
 title Isp_{std}
 
-%% final sizing after montecarlo
-% data from montecarlo
-Isp_w = Isp_avg(end) - 3*Isp_std(end);
-P_c_w = P_c_mc_avg(end) - 3*P_c_mc_std(end);
-m_dot_w = m_dot_mc_avg(end) - 3*m_dot_mc_std(end);
-
-MR = exp(DeltaV/(Isp_w*g));
-M_N_used = Mass*(MR-1);
-
-% pressure losses
-v_p = m_dot_w/(rho*A_p);
-Delta_P_tot_w = 0.5*rho*v_p^2*(k_p + A_p/A_v*k_v + A_p/A_inj*k_inj);
-Delta_P_plen_w = 0.5*rho*v_p^2*A_p/A_inj*k_inj;
-P_plen_w = P_c_w + Delta_P_plen_w;
-P_f_w = P_c_w + Delta_P_tot_w;
-P_f_w = P_f_w*1.2;
-
-V_plen = M_N_used*RN*Tc/P_plen_w;
-
-eq =@(V_tank) V_tank.*P_f./RN./Tc + M_N_used - P_f.*P_plen_w.*V_plen./RN./Tc.*k./(2.*P_f+M_N_used.*RN*Tc./V_tank);
-
-V_tank_w = fsolve(eq,1e-4);
-P_tank_w = (M_N_used + P_f_w*V_tank_w/RN/Tc)*RN*Tc/V_tank_w;
-M_N_tot = M_N_used + P_f_w*V_tank_w/RN/Tc;
+figure 
+subplot(2,2,1)
+plot(P_tank_avg)
+title P_{tank-avg}
+subplot(2,2,2)
+plot(P_tank_std)
+title P_{tank-std}
+subplot(2,2,3)
+plot(V_tank_avg)
+title V_{tank-avg}
+subplot(2,2,4)
+plot(V_tank_std)
+title V_{tank-std}
