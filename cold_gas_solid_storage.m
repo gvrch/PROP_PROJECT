@@ -13,7 +13,7 @@ g = 9.81;
 T_nom = 5e-3;           % Thrust (N)
 % Pressure in the plenum mid, (1 - 4.5)
 %P_pl_mid = 260000;  % for complete discharge
-P_pl_mid = 258000;
+P_pl_mid = 260000;
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
@@ -22,6 +22,8 @@ DeltaV = 0.5;       % requested total DV (m/s)
 Mass = 4;           % 4 U cubesat mass
 rho = 807;
 t_burn = DeltaV/(T_nom/Mass);
+P_tank_nom = 460000;
+
 
 RN = R/MM;
 
@@ -120,7 +122,7 @@ V_plen = charge_mass*RN*Tc/Delta_p_mid;
 
 
 step = 0.1;
-P_tank = 460000;
+P_tank = P_tank_nom;
 ii = 1;
 toll = 1e-8;
 while P_tank(end) > 100000
@@ -195,9 +197,8 @@ while P_tank(end) > 100000
     ii = ii + 1;
 end
 
-T_avg_nom  = mean(T);
-t_burn_each = length(T)*step;
-n_cahrges = t_burn/t_burn_each;
+T_avg_nom  = mean(T)
+t_burn_each = length(T)*step
 
 figure
 plot(T)
@@ -220,8 +221,12 @@ re_std = 5e-6;
 re_val = normrnd(re_avg, re_std, [N,1]);
 Ae_val = re_val.^2.*pi;
 
+P_tank_val = normrnd(P_tank_nom, P_tank_nom*0.01, [N,1]);
+
 toll = 1e-8;
 
+T_avg = 0;
+t_b_each_avg = 0;
 for jj = 1:N
 
     A_tt = At_val(jj);
@@ -230,7 +235,7 @@ for jj = 1:N
     it = 0;
 
     step = 0.1;
-    P_tank = 460000;
+    P_tank = P_tank_val(jj);
     T = [];
     ii = 1;
     toll = 1e-8;
@@ -306,18 +311,102 @@ for jj = 1:N
         ii = ii + 1;
     end
     T_vect(jj) = mean(T);
-    if jj > 1
-        T_avg(jj)  = T_avg(jj-1) + 1/jj*(T_vect(jj) - T_avg(jj-1));
-    else
-        T_avg(jj)  = T_vect(jj);
-    end
+    t_b_each(jj) = step*length(T);
+    T_avg(jj+1)  = T_avg(jj) + 1/jj*(T_vect(jj) - T_avg(jj));
+    t_b_each_avg(jj+1) = t_b_each_avg(jj) + 1/jj*(t_b_each(jj) - t_b_each_avg(jj));
     T_std(jj) = std(T_vect(1:jj));
 end
 
-%%
+%% plots
 
 figure
-subplot(2,1,1)
-plot(T_avg)
-subplot(2,1,2)
-plot(T_std)
+subplot(2,2,1)
+plot(T_avg(2:end))
+subplot(2,2,2)
+plot(T_std(2:end))
+subplot(2,2,3)
+plot(t_b_each_avg(2:end))
+title t_{b-each-avg}
+%% edge case
+% the first edge case investigated is the first charge, that does not reach
+% the nominal high pressure
+
+P_plen_first_charge = charge_mass*RN*Tc/V_plen; % sono un idiota è quello prima meno 1
+
+P_tank_fc = P_plen_first_charge;
+ii = 1;
+toll = 1e-9;
+while P_tank_fc(end) > 100000
+    m_dot2 = 5;
+    m_dot1 = 19;
+    it = 0;
+    P_cc = Pc;
+    while(abs(m_dot2 - m_dot1) > toll && it < 10000)
+        it = it + 1;
+
+        m_dot1 =  P_cc*At/c_star;
+        v  = m_dot1 /( A_inj* rho);
+        deltaP= 0.5*rho*v^2*k_inj;
+        P_cc = P_tank(end) - deltaP;
+        
+        m_dot2= P_cc*At/c_star ;
+
+        if it > 9999
+            disp('Il calcolo non converge')
+        end   
+    end
+
+    deltaP_tank = m_dot1*step*RN*Tc/V_plen;
+    P_tank_fc = [P_tank_fc , P_tank_fc(end)-deltaP_tank];
+
+    m_dot_vect_fc(ii) = m_dot2;
+    
+    aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
+    bb = 2/k;
+    cc = (k-1)/k;
+    
+    fun = @(x) x^bb*(1-x^cc)-aa;
+    dfun = @(x) -x^(bb-1)*((cc+bb)*x^cc-bb);
+    
+    c1 = 0;
+    c2 = 0.5;
+    tol = 1e-6;
+    err = tol + 1;
+    it = 0;
+    
+    while (it < 3 && err > tol ) 
+        it=it+1;
+        x = (c2+c1)/2; %stima dello zero
+        fc = fun(x);     
+        err=abs(fc); 
+        % scelta del nuovo estremo per l'eventuale ciclo successivo       
+        if (fc*fun(c1) > 0)
+              c1=x; 
+        else 
+              c2=x; 
+        end
+    end
+    xv = x;
+    while (it< 5 && err> tol)
+       dfx = dfun(xv);
+       if dfx == 0
+          error(' Arresto per azzeramento di dfun');
+       else
+          xn = xv - fun(xv)/dfx;
+          err = abs(fun(xn));
+          it = it+1;
+          xv = xn;
+       end
+    end
+    
+    % Calcolo della pressione di uscita
+    Pee = xn * P_cc;
+
+    v_e     = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
+    T_fc(ii)   = m_dot1*v_e + Ae*Pee;
+    Isp_fc(ii) = T_fc(ii)/(m_dot2*g);
+    ii = ii + 1;
+end
+
+T_avg_first_charge  = mean(T_fc)
+t_burn_first_cahrge = length(T_fc)*step

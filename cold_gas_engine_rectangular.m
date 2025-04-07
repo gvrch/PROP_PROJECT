@@ -7,7 +7,7 @@ close all
 R = 8.314; 
 g = 9.81;
 
-
+% data from Cold gas micro propulsion development for satellite application
 %Initial conditions
 
 T = 5e-3;           % Thrust (N)
@@ -15,10 +15,10 @@ Pc = 100000;        % chamber pressure (Pa) 1bar-4bar
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
-eps = 4;            % area ratio from 4-20
+eps = 15;            % area ratio from 4-20
 DeltaV = 0.5;       % requested total DV (m/s)
 Mass = 4;           % 4 U cubesat mass
-rho = 1.176;
+rho = 807;
 t_burn = DeltaV/(T/Mass);
 
 
@@ -32,9 +32,14 @@ k_inj = 0.6;    % P_drop injector
 % from paper but to be fixed
 A_p = 1e-3^2*pi;
 A_v = 0.5e-3^2*pi;
-r_inj = 250e-6;
+
 A_inj = r_inj^2*pi;
 
+% planar design
+r_inj = 250e-6;
+Ch_depth = 100e-6;
+Con_angl = deg2rad(28);
+Div_angl = deg2rad(28);
 %% Nominal Design
 
 
@@ -274,8 +279,9 @@ for ii = 1:N
     V_tank_std(ii)   = std(V_tank_mc(1:ii));
 end
 
-P_tank_w = P_tank_avg(end) - 3*P_tank_std(end);
-V_tank_w = V_tank_avg(end) - 3*V_tank_std(end);
+P_tank_w = P_tank_avg(end) - 3*P_tank_std(end)
+V_tank_w = V_tank_avg(end) - 3*V_tank_std(end)
+
 
 
 figure 
@@ -306,18 +312,3 @@ title V_{tank-avg}
 subplot(2,2,4)
 plot(V_tank_std)
 title V_{tank-std}
-
-
-%% leackage losses computed for 1 year
-rho_stand = 1.176; %kg/m^3 cond standard
-leack_rate = 10^-5; %scc/m standard cubic centieters every second
-t_leack = 60*60*24*365;
-tot_leack_scc = leack_rate*t_leack;
-tot_mass_leack = tot_leack_scc*10^-6/rho_stand;
-tot_N_mas = M_N_tot_avg(end) - tot_mass_leack;
-leacked_mass_ratio = tot_mass_leack/M_N_tot_avg(end)*100;
-
-% with a given volume calculate the loading the tank pressurization with a
-% 20% margin
-
-P_tank_marg = M_N_tot_avg(end)*1.2*RN*Tc/V_tank_w;

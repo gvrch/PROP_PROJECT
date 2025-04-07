@@ -18,8 +18,8 @@ k = 1.4;
 eps = 4;            % area ratio from 4-20
 DeltaV = 0.5;       % requested total DV (m/s)
 Mass = 4;           % 4 U cubesat mass
-rho = 807;
-t_burn = DeltaV/(T/Mass)
+rho = 1.176;
+t_burn = DeltaV/(T/Mass);
 
 
 RN = R/MM;
@@ -274,9 +274,8 @@ for ii = 1:N
     V_tank_std(ii)   = std(V_tank_mc(1:ii));
 end
 
-P_tank_w = P_tank_avg(end) - 3*P_tank_std(end)
-V_tank_w = V_tank_avg(end) - 3*V_tank_std(end)
-
+P_tank_w = P_tank_avg(end) - 3*P_tank_std(end);
+V_tank_w = V_tank_avg(end) - 3*V_tank_std(end);
 
 
 figure 
@@ -307,3 +306,18 @@ title V_{tank-avg}
 subplot(2,2,4)
 plot(V_tank_std)
 title V_{tank-std}
+
+
+%% leackage losses computed for 1 year
+rho_stand = 1.176; %kg/m^3 cond standard
+leack_rate = 10^-5; %scc/m standard cubic centieters every second
+t_leack = 60*60*24*365;
+tot_leack_scc = leack_rate*t_leack;
+tot_mass_leack = tot_leack_scc*10^-6/rho_stand;
+tot_N_mas = M_N_tot_avg(end) - tot_mass_leack;
+leacked_mass_ratio = tot_mass_leack/M_N_tot_avg(end)*100;
+
+% with a given volume calculate the loading the tank pressurization with a
+% 20% margin
+
+P_tank_marg = M_N_tot_avg(end)*1.2*RN*Tc/V_tank_w;
