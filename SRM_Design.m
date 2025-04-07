@@ -79,7 +79,9 @@ clearvars -except a_avg a_std n_avg n_std rho
 eps = 2.6      % Rapporto tra le aree (ugello convergente-divergente)
 k = 1.21;       % Rapporto dei calori specifici
 Pc = 5e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
-
+lll=0.912%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DA VEDERE FATTO CON CHAT, RE_d=723
+%FATTO CONSIDERANDO B=inf che è diversissimo ma sperimentalmente si
+%verifica che cambia poco
 alpha = 30;
 lambda = (1 + cosd(alpha))/2;
 % lambda=1;
@@ -136,10 +138,10 @@ Tc = 3070;      % Temperatura in camera di combustione (K), da definire
 
 % Calcolo della velocità di scarico
 ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) )
-CT = k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-(Pe/Pc)^((k-1)/k)))+Pe/Pc*eps;
+CT = k*sqrt(2/(k-1)*(2/(k+1))^((k+1)/(k-1))*(1-(Pe/Pc)^((k-1)/k)))*lll+Pe/Pc*eps;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 At = T/Pc/CT;
 Ae = eps*At;
-m_dot = (T-Pe*Ae)/(ve*lambda)
+m_dot = (T-Pe*Ae)/(ve*lambda)/lll%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 a_avg = a_avg*10^(-3-5*n_avg);
 a_std = a_std*10^(-3-5*n_avg);
@@ -253,7 +255,7 @@ for i=1:N
     end
     Pe = xv*Pc;
 
-	m_dot = rho*Ab*Pc^n_mc*a_mc;
+	m_dot = rho*Ab*Pc^n_mc*a_mc*lll;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k)));
 
     T_val(i)=m_dot*lambda*ve+Pe*Ae_mc;
