@@ -19,6 +19,8 @@ eps = 4;            % area ratio from 4-20
 DeltaV = 0.5;       % requested total DV (m/s)
 Mass = 4;           % 4 U cubesat mass
 rho = 807;
+t_burn = DeltaV/(T/Mass)
+
 
 RN = R/MM;
 
@@ -78,7 +80,7 @@ end
 Pe = xn * Pc;
 
 % temp in exit
-Te = Tc*(Pe/Pc)^((k-1)/k)
+Te = Tc*(Pe/Pc)^((k-1)/k);
 
 % Area Throat
 At = (T/Pc)/(sqrt(2*(k^2/(k-1))*(2/(k+1))^((k+1)/(k-1)))*sqrt(1-(Pe/Pc)^((k-1)/k))+eps*(Pe-0)/Pc);
@@ -106,6 +108,7 @@ c_star = At*Pc/m_dot_nom;
 % mass
 MR_nom = exp(DeltaV/(Isp_nom*g));
 M_N_used_nom = Mass*(MR_nom-1);
+
 
 % pressure losses
 v_p_nom = m_dot_nom/(rho*A_p);
