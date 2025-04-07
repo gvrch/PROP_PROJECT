@@ -249,12 +249,7 @@ xlabel('Thermal Power [W]');
 ylabel('Injection Area [m^2]');
 legend('Solution #1','Solution #2');
 
-<<<<<<< HEAD
 %% Plot Nozzle 2D and 3D
-=======
-% Nozzle
-% figure
->>>>>>> 7a0db23e7224d244c1ec822231716cf84868bcd1
 
 Np = 100;       % Number of points for the plot
 Ntheta = 50;    % Number of points for the rotation

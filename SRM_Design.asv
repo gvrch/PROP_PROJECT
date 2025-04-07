@@ -76,17 +76,16 @@ clearvars -except a_avg a_std n_avg n_std rho
 %% NOMINAL OPERATION
 
 % Dati del problema
-eps = 2.6      % Rapporto tra le aree (ugello convergente-divergente)
-k = 1.21;       % Rapporto dei calori specifici
-Pc = 5e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
+eps = 10      % Rapporto tra le aree (ugello convergente-divergente)
+k = 1.4;       % Rapporto dei calori specifici
+Pc = 1e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
 
 alpha = 30;
 lambda = (1 + cosd(alpha))/2;
 % lambda=1;
 
 T = 5e-3; 
-DeltaV = 0.5; % [m/s]
-Mass = 4; % [kg]
+
 
 aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
 bb = 2/k;
@@ -132,7 +131,7 @@ Pe = xn * Pc
 % Parametri aggiuntivi (devono essere definiti prima dell'uso)
 R = 8.314;        % Costante specifica del gas (J/mol*K), da definire correttamente per il propellente
 Mmol = 0.028;   % Massa molare del gas (kg/mol), da definire correttamente
-Tc = 3070;      % Temperatura in camera di combustione (K), da definire
+Tc = 3000;      % Temperatura in camera di combustione (K), da definire
 
 % Calcolo della velocità di scarico
 ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) )
@@ -144,12 +143,9 @@ m_dot = (T-Pe*Ae)/(ve*lambda)
 a_avg = a_avg*10^(-3-5*n_avg);
 a_std = a_std*10^(-3-5*n_avg);
 Ab = m_dot/(Pc^n_avg*a_avg*rho);
-h = a_avg*Pc^n_avg*DeltaV/T*Mass;
-
-T_g = Tc/(1+ (k-1)/2)
 
 %% MONTECARLO
-N = 20000;
+N = 10000;
 
 % manca il valore esatto di incertezza
 At_std = (sqrt(At/pi)+0.001*1e-3)^2*pi-At;
@@ -157,25 +153,26 @@ At_avg = At;
 Ae_std = (sqrt(Ae/pi)+0.001*1e-3)^2*pi-Ae;
 Ae_avg = Ae;
 
-% At_std = 0;
-% Ae_std = 0;
-% a_std = 0;
-% n_std = 0;
+At_std = 0;
+Ae_std = 0;
+a_std = 0;
+n_std = 0;
 
-Ab_val = normrnd(Ab_avg, Ab_std, [N,1]);
+DeltaV = 0.5; % [m/s]
+Mass = 4; % [kg]
+
 At_val = normrnd(At_avg, At_std, [N,1]);
 Ae_val = normrnd(Ae_avg, Ae_std, [N,1]);
-a_val =  normrnd(a_avg, a_std, [N, 1]);
-n_val =  normrnd(n_avg, n_std, [N, 1]);
+a_val = normrnd(a_avg, a_std, [N, 1]);
+n_val = normrnd(n_avg, n_std, [N, 1]);
 
-T_val = zeros(N,1);
-Pc_val = zeros(N,1);
-Pe_val = zeros(N,1);
-m_dot_val = zeros(N,1);
-ve_val = zeros(N,1);
-h_val = zeros(N,1);
-m_prop = zeros(N,1);
-Isp_val = zeros(N,1);
+T_val=zeros(N,1);
+Pc_val=zeros(N,1);
+Pe_val=zeros(N,1);
+m_dot_val=zeros(N,1);
+ve_val=zeros(N,1);
+h_val=zeros(N,1);
+m_prop =zeros(N,1);
 
 T_avg = zeros(N+1,1);
 T_std = zeros(N+1,1);
@@ -191,8 +188,6 @@ h_avg = zeros(N+1,1);
 h_std = zeros(N+1,1);
 m_prop_avg = zeros(N+1,1);
 m_prop_std = zeros(N+1,1);
-Isp_avg = zeros(N+1,1);
-Isp_std = zeros(N+1,1);
 
 for i=1:N
     At_mc=At_val(i);
@@ -265,10 +260,10 @@ for i=1:N
     Pe_val(i)=Pe;
     m_dot_val(i)=m_dot;
     ve_val(i)=ve;
-    Isp_val(i) = T_val(i)/m_dot_val(i)/9.80665;
+
     h_val(i)= a_mc*Pc_val(i)^n_mc*DeltaV/T_val(i)*Mass;
     m_prop(i) = h_val(i)*Ab*rho;
-
+    
     T_avg(i+1)=(T_avg(i)*(i-1)+T_val(i))/i;
     T_std(i+1)=std(T_val(1:i));
     Pc_avg(i+1)=(Pc_avg(i)*(i-1)+Pc_val(i))/i;
@@ -283,58 +278,52 @@ for i=1:N
     h_std(i+1)=std(h_val(1:i));
     m_prop_avg(i+1)=(m_prop_avg(i)*(i-1)+m_prop(i))/i;
     m_prop_std(i+1)=std(m_prop(1:i));
-    Isp_avg(i+1)=(Isp_avg(i)*(i-1)+Isp_val(i))/i;
-    Isp_std(i+1)=std(Isp_val(1:i));
+
 end
 
-%% PLOTS
-subplot(2,7,1)
+%%
+
+subplot(2,6,1)
 plot(T_avg)
-subplot(2,7,8)
+subplot(2,6,7)
 plot(T_std)
-subplot(2,7,2)
+subplot(2,6,2)
 plot(Pc_avg)
-subplot(2,7,9)
+subplot(2,6,8)
 plot(Pc_std)
-subplot(2,7,3)
+subplot(2,6,3)
 plot(Pe_avg)
-subplot(2,7,10)
+subplot(2,6,9)
 plot(Pe_std)
-subplot(2,7,4)
+subplot(2,6,4)
 plot(m_dot_avg)
-subplot(2,7,11)
+subplot(2,6,10)
 plot(m_dot_std)
-subplot(2,7,5)
+subplot(2,6,5)
 plot(ve_avg)
-subplot(2,7,12)
+subplot(2,6,11)
 plot(ve_std)
-subplot(2,7,6)
+subplot(2,6,6)
 plot(h_avg)
-subplot(2,7,13)
+subplot(2,6,12)
 plot(h_std)
-subplot(2,7,7)
-plot(Isp_avg)
-subplot(2,7,14)
-plot(Isp_std)
 
 %% Array Sizing
 
 wall_th = 1e-3;
-d_b = sqrt(Ab/pi)*2
-d_t = sqrt(At/pi)*2
-d_e = sqrt(Ae/pi)*2
-d_max = max([d_b, d_e]);
+d_Ab = sqrt(Ab/pi)*2;
+d_Ae = sqrt(Ae/pi)*2;
+d_max = max([d_Ab, d_Ae]);
 
-N_side = round(sqrt((h+5*h_std(end))/1e-3))
+N_side = round(sqrt(h_avg(end)/1e-3))
 N_thrusters = N_side^2
 
 L_plate = (d_max + wall_th)*N_side + wall_th
 
-r_b = d_b/2;
-r_t = d_t/2;
-r_e = d_e/2;
-L_conv = (r_b-r_t)/tan(deg2rad(45))
-L_div = (r_e-r_t)/tan(deg2rad(30))
-L = L_conv+L_div
+r_t = sqrt(At/pi);
+r_e = sqrt(Ae/pi);
+r_in = sqrt(Ab/pi);
+L1 = (r_in-r_t)/tan(deg2rad(45));
+L2 = (r_e-r_t)/tan(deg2rad(30));
+L = L1+L2;
 
-h_prop = (h+5*h_std(end))/N_thrusters

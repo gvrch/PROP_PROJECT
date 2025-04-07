@@ -1,5 +1,5 @@
 function [datainterp]=interplinear(table, value)
-% value = [T, P]
+% value = [P, T]
 datainterp = table.data;
 for i = 1 : length(value)
     l = find(value(i)>=table.d{i});
