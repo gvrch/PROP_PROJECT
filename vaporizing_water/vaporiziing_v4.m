@@ -12,7 +12,7 @@ g       = 9.81;         % Gravity acceleration                                  
 Pc      = 230000;       % Evaporation chamber Pressure                          [Pa]
 R       = 8.314;        % Gas Constant                                          [J/mol*K]
 Mmol    = 0.018;        % Water Molar Mass                                      [kg/mol]
-rho_l   = 1000;         % Density liquid water                                  [kg/m^3]
+rho_l   = 999;          % Density liquid water                                  [kg/m^3]
 rho_v   = 0.6;          % Density gas water                                     [kg/m^3]
 cp_l    = 4.1838e3;     % Specific Heat liquid water                            [J/kgK]
 cp_v    = 2.0256e3;     % Specific Heat gas water                               [J/kgK]
@@ -27,6 +27,8 @@ T       = 5e-3;         % Wanted Thrust                                         
 dv      = 0.5;          % Wanted Delta v                                        [m/s]
 mass    = 4;            % S/C mass                                              [kg]
 N       = 100;          % Number of sample for Q_dot                            [adim]
+k_gas   = 1.67;         % He 
+R_gas = 2077.3;         %J/kgK
 
 %% Calculate the Pressure Ratio (Pe/Pc)
 
@@ -91,6 +93,12 @@ L_div = 1/2*(2*(r_e-r_t)/tan(alpha));
 L_nozzle = L_conv + L_div;
 l = 1/2*(1+cos(alpha));         % 2D losses coefficientl
 
+%% Pipes geometry from literature
+D_h = 500e-6;
+L = 1000e-6;             
+mu = 1.137e-3;
+A_pipe = pi*(D_h/2)^2;
+
 %% Study the flow in function of Q_dot
 
 % Define some usefull constant value 
@@ -98,6 +106,9 @@ K       = sqrt(2*k/(k-1) * R/Mmol * (1 - (Pe/Pc)^((k-1)/k))); % V_e = k * sqrt(T
 dd      = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v;
 ee      = cp_v*((T-Pe*Ae)/(l*K))^2;
 Q_min   = sqrt(4*dd*ee);
+k_inj = 1/Cd^2; % Injection losses with Cd = 0.7
+
+dt = dv * mass / T; % time of burn with max mass sat = 4 (max possible)
 
 m_dot   = zeros(N,2);
 T_c     = zeros(N,2);
@@ -105,10 +116,26 @@ v_e     = zeros(N,2);
 T_e     = zeros(N,2);
 Isp     = zeros(N,2);
 A_inj   = zeros(N,2);
-Q_dot   = linspace(Q_min,13,N);
+A_val   = zeros(N,2);
+A_reg   = zeros(N,2);
+v = zeros(N,2);
+Re = zeros(N,2);
+P_tank = zeros(N,2);
+m_fuel = zeros(N,2);
+V_fuel = zeros(N,2);
+P_gas_i = zeros(N,2);
+M_gas = zeros(N,2);
+V_gas = zeros(N,2);
+p_drop_injection = zeros(N,1);
+P_plenum = zeros(N,1);
+p_drop_pipes = zeros(N,2);
+p_drop_valve = zeros(N,2);
+p_drop_reg = zeros(N,1);
+Q_dot = linspace(Q_min,13,N);
 
-for i = 1:length(Q_dot)
-    
+
+for i = 1:1
+    Q_tot = 13;
     % mass flow rate
     m_dot(i,1) = (Q_dot(i) + sqrt(Q_dot(i)^2 - Q_min^2))/(2*dd);
     m_dot(i,2) = (Q_dot(i) - sqrt(Q_dot(i)^2 - Q_min^2))/(2*dd);
@@ -132,6 +159,41 @@ for i = 1:length(Q_dot)
     % Injection Area
     A_inj(i,1) = m_dot(i,1)/(Cd*sqrt(2*dP_inj*Pc*rho_l));
     A_inj(i,2) = m_dot(i,2)/(Cd*sqrt(2*dP_inj*Pc*rho_l));
+
+    % Injection Losses 
+    p_drop_injection(i) = 0.1*Pc; % ipotizzato 10% di perdita di pressione
+    P_plenum(i) = Pc + p_drop_injection(i); % tale pressione è garantita dal regolatore   
+   
+    % Valve losses
+    p_drop_valve(i) = 0.04*(Pc+p_drop_injection(i)); % da paper thesis 0.03, da paper hydrazine 0.04
+    
+    % Pipes losses
+    v(i,1) = m_dot(i,1)/(A_pipe*rho_l);
+    v(i,2) = m_dot(i,2)/(A_pipe*rho_l);
+    Re(i,1) = rho_l.*v(i,1)*D_h/mu;
+    Re(i,2) = rho_l.*v(i,2)*D_h/mu;
+    p_drop_pipes(i,1) = 64./Re(i,1) * (L/D_h)*rho_l*mu^2/2;
+    p_drop_pipes(i,2) = 64./Re(i,2) * (L/D_h)*rho_l*mu^2/2;
+    
+    % Tank Pressure
+    P_tank(i, 1) = P_plenum(i) + p_drop_pipes(i,1) + p_drop_valve(i);
+    P_tank(i, 2) = P_plenum(i) + p_drop_pipes(i,2) + p_drop_valve(i);
+
+    % Mass propellant budget
+    m_fuel(i,1) = m_dot(i,1)*dt*1.055;
+    m_fuel(i,2) = m_dot(i,2)*dt*1.055; % 5.5% di margine dalle ECSS
+    V_fuel(i,1) = m_fuel(i,1)/rho_l*1.1; % 1% di margine dalle ECSS
+    V_fuel(i,2) = m_fuel(i,2)/rho_l*1.1;
+
+    
+    % Option with pressurant 
+%     P_gas_i(i,1) = 5*P_tank(i, 1); % scelta
+%     P_gas_i(i,2) = 5*P_tank(i, 2); 
+%     M_gas(i,1) = P_tank(i,1)*V_fuel(i,1)/(R_gas*T_inj)*k_gas/(1+(P_tank(i,1)/P_gas_i(i,1)));
+%     M_gas(i,2) = P_tank(i,2)*V_fuel(i,2)/(R_gas*T_inj)*k_gas/(1+(P_tank(i,2)/P_gas_i(i,2)));
+%     V_gas(i,1) = M_gas(i,1)*R_gas*T_inj/P_gas_i;
+%     V_gas(i,2) = M_gas(i,2)*R_gas*T_inj/P_gas_i;
+    
 end
 
 %% Temperature, Pressure and Mach inside the nozzle
@@ -182,8 +244,6 @@ end
 
 % Calculate pressure at sampled times
 P_nozzle = Pe .* (T_nozzle ./ T_exit) .^(k/(k-1));
-
-
 
 
 %% PLOTS
@@ -249,12 +309,12 @@ xlabel('Thermal Power [W]');
 ylabel('Injection Area [m^2]');
 legend('Solution #1','Solution #2');
 
-<<<<<<< HEAD
+
 %% Plot Nozzle 2D and 3D
-=======
+
 % Nozzle
 % figure
->>>>>>> 7a0db23e7224d244c1ec822231716cf84868bcd1
+
 
 Np = 100;       % Number of points for the plot
 Ntheta = 50;    % Number of points for the rotation
