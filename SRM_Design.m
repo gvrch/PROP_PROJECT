@@ -1,6 +1,7 @@
 clear
 clc
 close all
+addpath 'CEAM 1.0.0.0'\
 
 codes = 2438:2446;
 trigger_action = 0.05; % 5%
@@ -77,7 +78,7 @@ clearvars -except a_avg a_std n_avg n_std rho
 
 % Dati del problema
 eps = 2.6      % Rapporto tra le aree (ugello convergente-divergente)
-k = 1.21;       % Rapporto dei calori specifici
+k = 1.1512;       % Rapporto dei calori specifici
 Pc = 5e+5    % Pressione in camera di combustione (Pa) DA GUARDARE DA LETTERATURA
 lll=0.912%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% DA VEDERE FATTO CON CHAT, RE_d=723
 %FATTO CONSIDERANDO B=inf che è diversissimo ma sperimentalmente si
@@ -133,8 +134,8 @@ Pe = xn * Pc
 
 % Parametri aggiuntivi (devono essere definiti prima dell'uso)
 R = 8.314;        % Costante specifica del gas (J/mol*K), da definire correttamente per il propellente
-Mmol = 0.028;   % Massa molare del gas (kg/mol), da definire correttamente
-Tc = 3070;      % Temperatura in camera di combustione (K), da definire
+Mmol = 0.02615; %CALCOLATO RPA  % Massa molare del gas (kg/mol), da definire correttamente
+Tc = 3159;      % Temperatura in camera di combustione (K), da definire
 
 % Calcolo della velocità di scarico
 ve = sqrt(2*k/(k-1) * R/Mmol * Tc * (1 - (Pe/Pc)^((k-1)/k) ) )
@@ -147,8 +148,21 @@ a_avg = a_avg*10^(-3-5*n_avg);
 a_std = a_std*10^(-3-5*n_avg);
 Ab = m_dot/(Pc^n_avg*a_avg*rho);
 h = a_avg*Pc^n_avg*DeltaV/T*Mass;
+c_star = Pc*At/m_dot
 
 T_g = Tc/(1+ (k-1)/2)
+
+rho_g = Pc/(R/Mmol*Tc)*(1+(k-1)/2)^(1/(1-k));
+v_g = m_dot/(At*rho_g)
+% Re_g = rho_g*v_g*
+x=CEA('reac','name','SR_AL','AL',1.00,'h,cal/mol',0.,'wt%',18.0,'t(k)',298.15,'name',...
+    'AM_PERCL','N',1,'H',4,'O',4,'CL',1,'wt%',68.00,'h,cal/mol',-70700.,'t(k)',298.15,...
+    'name','Dio_Adi','C',22.,'H',42.,'O',4.,'wt%',2.0,'h,cal/mol',-296000.,'t(k)',298.15,...
+    'name','HTPB','C',7.332,'H',10.962,'O',0.058,'h,cal/mol',-250.,'wt%',11.00,'t(k)',298.15,...
+    'name','HX-752','C',14.,'H',16.,'N',2.0,'O',2.,'wt%',0.20,'h,cal/mol',-61000.,'t(k)',298.15,...
+    'name','stabilizer','C',38.,'H',66.,'N',2.,'wt%',0.10,'h,cal/mol',-206300.,'t(k)',298.15,...
+    'prob','rkt','p,psia',1000,'outp','massf','transport','mks','end','screen');
+
 
 %% MONTECARLO
 N = 20000;

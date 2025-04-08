@@ -4,7 +4,7 @@ clc
 %% NOMINAL
 
 % DATA
-eps   = 9;            % Rapporto tra le aree (ugello convergente-divergente)  [adim]
+eps   = 3.2;            % Rapporto tra le aree (ugello convergente-divergente)  [adim]
 k       = 1.327;        % Rapporto dei calori specifici                         [adim]
 g       = 9.80665;         % Gravity acceleration                                  [m/s^2]
 Pc_d    = 230000;       % Evaporation chamber Pressure                          [Pa]
