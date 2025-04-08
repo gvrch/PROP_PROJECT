@@ -13,7 +13,6 @@ Pc      = 230000;       % Evaporation chamber Pressure                          
 R       = 8.314;        % Gas Constant                                          [J/mol*K]
 Mmol    = 0.018;        % Water Molar Mass                                      [kg/mol]
 rho_l   = 999;          % Density liquid water                                  [kg/m^3]
-rho_v   = 0.6;          % Density gas water                                     [kg/m^3]
 cp_l    = 4.1838e3;     % Specific Heat liquid water                            [J/kgK]
 cp_v    = 2.0256e3;     % Specific Heat gas water                               [J/kgK]
 lambda  = 2260e+3;      % Water latent evaporation heat                         [J/kg]
@@ -97,7 +96,11 @@ l = 1/2*(1+cos(alpha));         % 2D losses coefficientl
 D_h = 500e-6;
 L = 1000e-6;             
 mu = 1.137e-3;
-A_pipe = pi*(D_h/2)^2;
+A_pipe = 500*100*1e-12;
+
+%% Minimum impulse bit
+valve_time_response = 0.1;
+min_impulse_bit = T*valve_time_response;
 
 %% Study the flow in function of Q_dot
 
@@ -106,7 +109,7 @@ K       = sqrt(2*k/(k-1) * R/Mmol * (1 - (Pe/Pc)^((k-1)/k))); % V_e = k * sqrt(T
 dd      = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v;
 ee      = cp_v*((T-Pe*Ae)/(l*K))^2;
 Q_min   = sqrt(4*dd*ee);
-k_inj = 1/Cd^2; % Injection losses with Cd = 0.7
+k_inj   = 1/Cd^2; % Injection losses with Cd = 0.7
 
 dt = dv * mass / T; % time of burn with max mass sat = 4 (max possible)
 
