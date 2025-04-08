@@ -11,13 +11,13 @@ g = 9.81;
 %Initial conditions
 
 T = 5e-3;           % Thrust (N)
-Pc = 100000;        % chamber pressure (Pa) 1bar-4bar
+Pc = 150000;        % chamber pressure (Pa) 1bar-4bar
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
-eps = 4;            % area ratio from 4-20
+eps = 10;            % area ratio from 4-20
 DeltaV = 0.5;       % requested total DV (m/s)
-Mass = 4;           % 4 U cubesat mass
+Mass = 4;           % 3U cubesat mass
 rho = 1.176;
 t_burn = DeltaV/(T/Mass);
 
@@ -89,6 +89,8 @@ Dt=2*rt;
 
 % Exit Velocity
 v_exit = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pe/Pc)^((k-1)/k)));
+M_exit = v_exit/sqrt(k*RN*Te)
+
 
 % Exit Area
 Ae = eps*At;
@@ -108,7 +110,6 @@ c_star = At*Pc/m_dot_nom;
 % mass
 MR_nom = exp(DeltaV/(Isp_nom*g));
 M_N_used_nom = Mass*(MR_nom-1);
-
 
 % pressure losses
 v_p_nom = m_dot_nom/(rho*A_p);
@@ -148,6 +149,14 @@ Ae_val = re_val.^2.*pi;
 
 toll = 1e-8;
 
+T_avg = 0;
+Isp_avg = 0;
+P_c_mc_avg = 0;
+m_dot_mc_avg = 0;
+M_N_tot_avg = 0;
+P_tank_avg = 0;
+V_tank_avg = 0;
+M_N_used_avg = 0;
 
 for ii = 1:N
     
@@ -226,43 +235,31 @@ for ii = 1:N
 
     % mass
     MR_mc = exp(DeltaV/(Isp_mc(ii)*g));
-    M_N_used_mc = Mass*(MR_mc-1);
+    M_N_used_mc(ii) = Mass*(MR_mc-1);
 
     % pressure losses
     v_p_mc = m_dot_mc(ii)/(rho*A_p);
     Delta_P_tot_mc = 0.5*rho*v_p_mc^2*(k_p + A_p/A_v*k_v + A_p/A_inj*k_inj);
     Delta_P_plen_mc = 0.5*rho*v_p_mc^2*A_p/A_inj*k_inj;
-    P_f_mc = Pc + Delta_P_tot_mc;
-    P_f_mc = P_f_mc*1.2;
     
-    V_plen_mc = M_N_used_mc*RN*Tc/P_plen_nom;
+    V_plen_mc = M_N_used_mc(end)*RN*Tc/P_plen_nom;
     
-    M_res_mc(ii)   = -(M_N_used_mc*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*RN*Tc);
-    P_tank_mc(ii)  = -(P_f_mc*(M_N_used_mc*RN*Tc + P_plen_nom*V_plen_mc*k))/(M_N_used_mc*RN*Tc - P_plen_nom*V_plen_mc*k);
-    V_tank_mc(ii)  = -(M_N_used_mc*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*P_f_mc);
-    M_N_tot_mc(ii) = M_res_mc(ii) + M_N_used_mc;
+    M_res_mc(ii)   = -(M_N_used_mc(end)*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*RN*Tc);
+    P_tank_mc(ii)  = -(P_f_nom*(M_N_used_mc(end)*RN*Tc + P_plen_nom*V_plen_mc*k))/(M_N_used_mc(end)*RN*Tc - P_plen_nom*V_plen_mc*k);
+    V_tank_mc(ii)  = -(M_N_used_mc(end)*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*P_f_nom);
+    M_N_tot_mc(ii) = M_res_mc(ii) + M_N_used_mc(end);
 
-    if ii > 1
-        T_avg(ii) = T_avg(ii-1) + 1/ii*(T(ii) - T_avg(ii-1));
-        Isp_avg(ii) = Isp_avg(ii-1) + 1/ii*(Isp_mc(ii) - Isp_avg(ii-1));
-
-        P_c_mc_avg(ii) = P_c_mc(ii-1) + 1/ii*(P_c_mc(ii) - P_c_mc_avg(ii-1));
-        m_dot_mc_avg(ii) = m_dot_mc_avg(ii-1) + 1/ii*(m_dot_mc(ii) - m_dot_mc_avg(ii-1));
-        M_N_tot_avg(ii) = M_N_tot_avg(ii-1) + 1/ii*(M_N_tot_mc(ii) - M_N_tot_avg(ii-1));
-
-        P_tank_avg(ii) = P_tank_avg(ii-1) + 1/ii*(P_tank_mc(ii) - P_tank_avg(ii-1));
-        V_tank_avg(ii) = V_tank_avg(ii-1) + 1/ii*(V_tank_mc(ii) - V_tank_avg(ii-1));
-    else
-        T_avg(ii) = T(ii);
-        Isp_avg(ii) = Isp_mc(ii);
-
-        P_c_mc_avg(ii) = P_c_mc(ii);
-        m_dot_mc_avg(ii) = m_dot_mc(ii);
-        M_N_tot_avg(ii) = M_N_tot_mc(ii);
-        
-        P_tank_avg(ii) = P_tank_mc(ii);
-        V_tank_avg(ii) = V_tank_mc(ii);
-    end
+    
+    
+    T_avg(ii+1) = T_avg(ii) + 1/(ii)*(T(ii) - T_avg(ii));
+    Isp_avg(ii+1) = Isp_avg(ii) + 1/(ii)*(Isp_mc(ii) - Isp_avg(ii));    
+    P_c_mc_avg(ii+1) = P_c_mc(ii) + 1/(ii)*(P_c_mc(ii) - P_c_mc_avg(ii));
+    m_dot_mc_avg(ii+1) = m_dot_mc_avg(ii) + 1/(ii)*(m_dot_mc(ii) - m_dot_mc_avg(ii));
+    M_N_tot_avg(ii+1) = M_N_tot_avg(ii) + 1/(ii)*(M_N_tot_mc(ii) - M_N_tot_avg(ii));    
+    
+    M_N_used_avg(ii+1) = M_N_used_avg(ii) + 1/(ii)*(M_N_used_mc(end) - M_N_used_avg(ii));
+    V_tank_avg(ii+1) = V_tank_avg(ii) + 1/(ii)*(V_tank_mc(ii) - V_tank_avg(ii));
+    
     T_std(ii) = std(T(1:ii));
     Isp_std(ii) = std(Isp_mc(1:ii));
 
@@ -270,24 +267,26 @@ for ii = 1:N
     m_dot_mc_std(ii) = std(m_dot_mc(1:ii));
     M_N_tot_std(ii)  = std(M_N_tot_mc(1:ii));
 
-    P_tank_std(ii)   = std(P_tank_mc(1:ii));
+    M_N_used_std(ii) = std(M_N_used_mc(1:end)); 
     V_tank_std(ii)   = std(V_tank_mc(1:ii));
 end
 
-P_tank_w = P_tank_avg(end) - 3*P_tank_std(end);
-V_tank_w = V_tank_avg(end) - 3*V_tank_std(end);
+M_N_used_w = M_N_used_avg(end) + 3*M_N_used_std(end);
 
+P_tank_w = (P_f_nom*(k + 1))/(k - 1);
+V_tank_w = -(RN*Tc*(M_N_used_w - M_N_used_w*k))/(2*P_f_nom);
+M_res_w  = (M_N_used_w*k)/2 - M_N_used_w/2;
 
 figure 
 subplot(2,2,1)
-plot(T_avg)
-ylim([0 0.01])
+plot(T_avg(2:end))
+%ylim([0 0.01])
 title T_{avg}
 subplot(2,2,2)
 plot(T_std)
 title T_{std}
 subplot(2,2,3)
-plot(Isp_avg)
+plot(Isp_avg(2:end))
 title Isp_{avg}
 subplot(2,2,4)
 plot(Isp_std)
@@ -295,13 +294,13 @@ title Isp_{std}
 
 figure 
 subplot(2,2,1)
-plot(P_tank_avg)
-title P_{tank-avg}
+plot(M_N_used_avg(2:end))
+title M_{N-used-avg}
 subplot(2,2,2)
-plot(P_tank_std)
-title P_{tank-std}
+plot(M_N_used_std)
+title M_{N-used-std}
 subplot(2,2,3)
-plot(V_tank_avg)
+plot(V_tank_avg(2:end))
 title V_{tank-avg}
 subplot(2,2,4)
 plot(V_tank_std)
@@ -314,10 +313,11 @@ leack_rate = 10^-5; %scc/m standard cubic centieters every second
 t_leack = 60*60*24*365;
 tot_leack_scc = leack_rate*t_leack;
 tot_mass_leack = tot_leack_scc*10^-6/rho_stand;
-tot_N_mas = M_N_tot_avg(end) - tot_mass_leack;
-leacked_mass_ratio = tot_mass_leack/M_N_tot_avg(end)*100;
+tot_N_mas = M_N_used_w + M_res_w - tot_mass_leack;
+leacked_mass_ratio = tot_mass_leack/(M_N_used_w + M_res_w)*100;
 
 % with a given volume calculate the loading the tank pressurization with a
 % 20% margin
 
-P_tank_marg = M_N_tot_avg(end)*1.2*RN*Tc/V_tank_w;
+P_tank_marg = (M_N_used_w + M_res_w)*1.2*RN*Tc/V_tank_w
+M_tot_marg  = P_tank_marg*V_tank_w/(RN*Tc) 

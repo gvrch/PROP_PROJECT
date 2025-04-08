@@ -24,7 +24,7 @@ T     = 5e-3;         % Wanted Thrust                                         [N
 dv      = 0.5;          % Wanted Delta v                                        [m/s]
 mass    = 4;            % S/C mass                                              [kg]
 N = 5000;              % N MONTECARLO
-GAMMA = sqrt(k*(2/(k+1))^((k+1)/(k-1)));
+% GAMMA = sqrt(k*(2/(k+1))^((k+1)/(k-1)));
 % Injection - Cd (TBR)
 k_inj = 1/Cd^2;
 
@@ -125,8 +125,8 @@ for iii = 1:length(Q_design)
     Q_min   = sqrt(4*aa*cc);
         
     % mass flow rate
-    m_dot = (Q_dot + sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % LOW TEMP BRANCH
-    % m_dot = (Q_dot - sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % HIGH TEMP BRANCH
+   % m_dot = (Q_dot + sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % LOW TEMP BRANCH
+     m_dot = (Q_dot - sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % HIGH TEMP BRANCH
     
     % Combustion Chamber Temperature
     Tc = ((T-Pe_d*Ae)/(m_dot *K))^2;
@@ -222,7 +222,7 @@ for iii = 1:length(Q_design)
         
         c1  = 0;
         c2  = 0.5;
-        tol = 1e-7;
+        tol = 1e-16;
         err = tol + 1;
         it  = 0;
         
@@ -239,7 +239,7 @@ for iii = 1:length(Q_design)
             end
         end
         xv = x;
-        while (it < 20 && err> tol)
+        while (it < 200 && err> tol)
            dfx = dfun(xv);
            if dfx == 0
               error(' Arresto per azzeramento di dfun');
@@ -254,7 +254,10 @@ for iii = 1:length(Q_design)
         % Compute exit pressure value
         % Pe = xn * Pc;
         p_ratio_i = xv;
-        K_ratio2= k*(2/(k+1))^((k+1)/(k-1))*Mmol/R;
+        % K_ratio2= k*(2/(k+1))^((k+1)/(k-1))*Mmol/R;
+        M =0.05;
+        GAMMA = 1/(sqrt(k)*M*(1+(k-1)/2*M^2)^((1+k)/(2-2*k)));
+        K_ratio2= GAMMA^2*Mmol/R;
     
         AA = cp_v*K_ratio2*At^2*K_tot^2;
         BB = 0;
@@ -273,6 +276,10 @@ for iii = 1:length(Q_design)
         q = CC/AA;
         r = DD/AA;
         s = EE/AA;
+
+        if Delta > 0
+            sucaaaa = 0;
+        end
 
         fun = @(x) AA*x.^4 + CC*x.^2 + DD*x + EE;
         dfun = @(x) 4*AA*x.^3 + 2*CC*x + DD;
