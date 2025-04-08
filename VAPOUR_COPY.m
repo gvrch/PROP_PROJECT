@@ -275,7 +275,7 @@ for iii = 1:length(Q_design)
 
         q = CC/AA;
         r = DD/AA;
-        s = EE/AA;
+        s = EE/AA;ij
 
         if Delta > 0
             sucaaaa = 0;

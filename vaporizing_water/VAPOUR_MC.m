@@ -23,7 +23,9 @@ dP_inj_perc = 0.1;      % Pressure lost for injection   !!!CHECK!!!
 T     = 5e-3;         % Wanted Thrust                                         [N]
 dv      = 0.5;          % Wanted Delta v                                        [m/s]
 mass    = 4;            % S/C mass                                              [kg]
-N = 5000;              % N MONTECARLO
+N = 10000;              % N MONTECARLO
+Q_offset = 1.5;
+N_Q = 100;
 GAMMA = sqrt(k*(2/(k+1))^((k+1)/(k-1)));
 % Injection - Cd (TBR)
 k_inj = 1/Cd^2;
@@ -86,15 +88,15 @@ L_conv = 1/2*(2*(r_c-r_t)/tan(beta)); % ipotesi che Ae è uagule a quwlla di ing
 L_div = 1/2*(2*(r_e-r_t)/tan(alpha));
 L_nozzle = L_conv + L_div;
 l = 1/2*(1+cos(alpha));
-l = 1;
+% l = 1;
 
 % Define some usefull constant value 
 K       = sqrt(2*k/(k-1) * R/Mmol * (1 - p_ratio^((k-1)/k))); % V_e = k * sqrt(Tc)
 aa      = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v;
-cc      = cp_v*((T-Pe_d*Ae)/K)^2;
+cc      = cp_v*((T-Pe_d*Ae)/(l*K))^2;
 Q_min   = sqrt(4*aa*cc);
 
-Q_design = linspace(Q_min, Q_min+1.5, 100);   % Only for design
+Q_design = linspace(Q_min, Q_min+Q_offset, N_Q);   % Only for design
 
 unstart_design = zeros(length(Q_design),1);
 choke_design = zeros(length(Q_design),1);
@@ -121,15 +123,15 @@ for iii = 1:length(Q_design)
     % Define some usefull constant value 
     K       = sqrt(2*k/(k-1) * R/Mmol * (1 - p_ratio^((k-1)/k))); % V_e = k * sqrt(Tc)
     aa      = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v;
-    cc      = cp_v*((T-Pe_d*Ae)/K)^2;
+    cc      = cp_v*((T-Pe_d*Ae)/(l*K))^2;
     Q_min   = sqrt(4*aa*cc);
         
     % mass flow rate
-    m_dot = (Q_dot + sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % LOW TEMP BRANCH
+	m_dot = (Q_dot + sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % LOW TEMP BRANCH
     % m_dot = (Q_dot - sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % HIGH TEMP BRANCH
     
     % Combustion Chamber Temperature
-    Tc = ((T-Pe_d*Ae)/(m_dot *K))^2;
+    Tc = ((T-Pe_d*Ae)/(m_dot*l*K))^2;
     
     % Exit Velocity
     v_e = K *sqrt(Tc);
@@ -200,7 +202,7 @@ for iii = 1:length(Q_design)
     Isp_avg = zeros(N+1,1);
     Isp_std = zeros(N+1,1);
     
-    
+    index = 0;
     unstart = 0;
     choke = 0;
     for i = 1:N
@@ -222,7 +224,7 @@ for iii = 1:length(Q_design)
         
         c1  = 0;
         c2  = 0.5;
-        tol = 1e-7;
+        tol = 1e-16;
         err = tol + 1;
         it  = 0;
         
@@ -239,7 +241,7 @@ for iii = 1:length(Q_design)
             end
         end
         xv = x;
-        while (it < 20 && err> tol)
+        while (it < 200 && err> tol)
            dfx = dfun(xv);
            if dfx == 0
               error(' Arresto per azzeramento di dfun');
@@ -256,186 +258,180 @@ for iii = 1:length(Q_design)
         p_ratio_i = xv;
         K_ratio2= k*(2/(k+1))^((k+1)/(k-1))*Mmol/R;
     
-        AA = cp_v*K_ratio2*At^2*K_tot^2;
+		% Compute mass flow rate from quartic equation
+        AA = cp_v*K_ratio2*(At/l)^2*K_tot^2;
         BB = 0;
-        CC = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v -2*P_plenum*K_tot*cp_v*K_ratio2*At^2;
+        CC = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v -2*P_plenum*K_tot*cp_v*K_ratio2*(At/l)^2;
         DD = - Q_dot;
-        EE = cp_v*K_ratio2*P_plenum^2*At^2;
+        EE = cp_v*K_ratio2*P_plenum^2*(At/l)^2;
 
         Delta = 256*AA^3*EE^3 - 128*AA^2*CC^2*EE^2 + 144*AA^2*CC*DD^2*EE - 27*AA^2*DD^4 + ...
             16*AA*CC^4*EE - 4*AA*CC^3*DD^2;
-        P = 8*AA*CC;
-        D = 64*AA^3*EE - 16*AA^2*CC^2;
-
+        % P = 8*AA*CC;
+        % D = 64*AA^3*EE - 16*AA^2*CC^2;
         Delta0 = CC^2 + 12*AA*EE;
         Delta1 = 2*CC^3 + 27*BB^2*EE + 27*AA*DD^2 - 72*AA*CC*EE;
+        % q1 = CC/AA;
+        % r1 = DD/AA;
+        % s1 = EE/AA;
+		pp = CC/AA;
+		qq = DD/AA;
+		QQ = ((Delta1 + sqrt(Delta1^2-4*Delta0^3))/2)^(1/3);
+		SS = 0.5*sqrt(-2/3*pp + 1/(3*AA)*(QQ+Delta0/QQ));
+		% sol_1 = -SS+0.5*sqrt(-4*SS^2-2*pp+qq/SS);
+		% sol_2 = -SS-0.5*sqrt(-4*SS*2-2*pp+qq/SS);
+		% sol_3 = +SS+0.5*sqrt(-4*SS*2-2*pp-qq/SS);
+		% sol_4 = +SS-0.5*sqrt(-4*SS*2-2*pp-qq/SS);
+		sign = -1 + 2*((-4*SS^2-2*pp+qq/SS) > 0);
 
-        q = CC/AA;
-        r = DD/AA;
-        s = EE/AA;
+		sol_1 = -sign*SS+0.5*sqrt(-4*SS^2-2*pp+sign*qq/SS);
+		% sol_2 = -sign*SS-0.5*sqrt(-4*SS^2-2*pp+sign*qq/SS);
 
-        fun = @(x) AA*x.^4 + CC*x.^2 + DD*x + EE;
-        dfun = @(x) 4*AA*x.^3 + 2*CC*x + DD;
-        dfun2 = @(x) 12*AA*x.^2 + 2*CC;
-    
-        toll = 1e-12;
-        err = toll + 1;
-        iter = 0;
-        xv = m_dot;
-        while (iter < 20 && err> toll)
-           dfx = dfun2(xv);
-           if dfx == 0
-              error(' Arresto per azzeramento di dfun');
-           else
-              xn = xv - dfun(xv)/dfx;
-              err = abs(dfun(xn));
-              iter = iter+1;
-              xv = xn;
-           end
-        end
-        xmin = xv;
-    
-        c1 = xmin;      % LOW TEMP BRANCH
-        c2 = 1e-4;
-        % c1 = 1e-7;    % HIGH TEMP BRANCH
-        % c2 = xmin;
-        toll = 1e-10;
-        err = toll + 1;
-        iter = 0;
-        while (iter < 40 && err > toll ) 
-            iter=iter+1;
-            x = (c2+c1)/2; %stima dello zero
-            fc = fun(x);     
-            err=abs(fc); 
-            % scelta del nuovo estremo per l'eventuale ciclo successivo       
-            if (fc*fun(c1) > 0)
-                  c1=x; 
-            else 
-                  c2=x; 
-            end
-        end
-        m_dot = x;
-    
+        m_dot = sol_1;
+
+		choke_flag = ~isreal(sol_1);
+		choke = choke + choke_flag;
+
         Pc = P_plenum- K_tot*m_dot^2;
         Tc = (Q_dot-m_dot*(cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v))/m_dot/cp_v;
-        unstart = unstart + (Tc < T_eb);
-        Pe = Pc*p_ratio_i;
+		
+		unstart_flag = (Tc < T_eb);
+		unstart = unstart + unstart_flag*(~choke_flag);
+        
+		Pe = Pc*p_ratio_i;
         ve = sqrt(2*k/(k-1)*R/Mmol*Tc*(1-(Pe/Pc)^((k-1)/k)));
     
-        m_dot_max = Pc*At*sqrt(k/(R/Mmol)/Tc)*(2/(k+1))^((k+1)/2/(k-1));
-        choke = choke + ((m_dot-m_dot_max)/m_dot > 1e-3);
+        % m_dot_max = Pc*At*sqrt(k/(R/Mmol)/Tc)*(2/(k+1))^((k+1)/2/(k-1));
 
-
-        c_star1 = Pc*At/m_dot;
-        c_star2 = sqrt(R/Mmol*Tc)/GAMMA;
-        % choke = choke + (abs(c_star1-c_star2)/c_star2 > 1e-4);
-
-
-        T_val(i)=(m_dot*l*ve+Pe*Ae)*(Tc > T_eb);
-        Pc_val(i)=Pc*(Tc > T_eb);
-        Pe_val(i)=Pe*(Tc > T_eb);
-        m_dot_val(i)=m_dot*(Tc > T_eb);
-        ve_val(i)=ve*(Tc > T_eb);
-        Isp_val(i) = T_val(i)/m_dot_val(i)/g*(Tc > T_eb);
-        Tc_val(i) = Tc*(Tc > T_eb);
+        % c_star1 = Pc*At/m_dot;
+        % c_star2 = sqrt(R/Mmol*Tc)/GAMMA;
     
-        T_avg(i+1)=(T_avg(i)*(i-1)+T_val(i))/i;
-        T_std(i+1)=std(T_val(1:i));
-        Pc_avg(i+1)=(Pc_avg(i)*(i-1)+Pc_val(i))/i;
-        Pc_std(i+1)=std(Pc_val(1:i));
-        Pe_avg(i+1)=(Pe_avg(i)*(i-1)+Pe_val(i))/i;
-        Pe_std(i+1)=std(Pe_val(1:i));
-        m_dot_avg(i+1)=(m_dot_avg(i)*(i-1)+m_dot_val(i))/i;
-        m_dot_std(i+1)=std(m_dot_val(1:i));
-        ve_avg(i+1)=(ve_avg(i)*(i-1)+ve_val(i))/i;
-        ve_std(i+1)=std(ve_val(1:i));
-        Tc_avg(i+1)=(Tc_avg(i)*(i-1)+Tc_val(i))/i;
-        Tc_std(i+1)=std(Tc_val(1:i));
-        Isp_avg(i+1)=(Isp_avg(i)*(i-1)+Isp_val(i))/i;
-        Isp_std(i+1)=std(Isp_val(1:i));
+    	if all([(~unstart_flag),(~choke_flag)])
+        	index = i - (unstart + choke);
+	
+        	T_val(index)     = (m_dot*l*ve+Pe*Ae);
+        	Pc_val(index)    = Pc;
+        	Pe_val(index)    = Pe;
+        	m_dot_val(index) = m_dot;
+        	ve_val(index)    = ve;
+        	Isp_val(index)   = T_val(index)/m_dot_val(index)/g;
+        	Tc_val(index)    = Tc;
+	
+        	T_avg(index+1)=(T_avg(index)*(index-1)+T_val(index))/index;
+        	T_std(index+1)=std(T_val(1:index));
+        	Pc_avg(index+1)=(Pc_avg(index)*(index-1)+Pc_val(index))/index;
+        	Pc_std(index+1)=std(Pc_val(1:index));
+        	Pe_avg(index+1)=(Pe_avg(index)*(index-1)+Pe_val(index))/index;
+        	Pe_std(index+1)=std(Pe_val(1:index));
+        	m_dot_avg(index+1)=(m_dot_avg(index)*(index-1)+m_dot_val(index))/index;
+        	m_dot_std(index+1)=std(m_dot_val(1:index));
+        	ve_avg(index+1)=(ve_avg(index)*(index-1)+ve_val(index))/index;
+        	ve_std(index+1)=std(ve_val(1:index));
+        	Tc_avg(index+1)=(Tc_avg(index)*(index-1)+Tc_val(index))/index;
+        	Tc_std(index+1)=std(Tc_val(1:index));
+        	Isp_avg(index+1)=(Isp_avg(index)*(index-1)+Isp_val(index))/index;
+        	Isp_std(index+1)=std(Isp_val(1:index));
+    	end
 
     end
     
-    start_frac = 1 - unstart/N;
-    start_frac = start_frac + (start_frac < 1e-3);
-    unstart_design(iii) = unstart/N;
-    choke_design(iii) = choke/N;
-    T_avg_design(iii) = T_avg(end)/start_frac;
-    T_std_design(iii) = T_std(end)/start_frac;
-    Pc_avg_design(iii) = Pc_avg(end)/start_frac;
-    Pc_std_design(iii) = Pc_std(end)/start_frac;
-    Pe_avg_design(iii) = Pe_avg(end)/start_frac;
-    Pe_std_design(iii) = Pe_std(end)/start_frac;
-    m_dot_avg_design(iii) = m_dot_avg(end)/start_frac;
-    m_dot_std_design(iii) = m_dot_std(end)/start_frac;
-    ve_avg_design(iii) = ve_avg(end)/start_frac;
-    ve_std_design(iii) = ve_std(end)/start_frac;
-    Tc_avg_design(iii) = Tc_avg(end)/start_frac;
-    Tc_std_design(iii) = Tc_std(end)/start_frac;
-    Isp_avg_design(iii) = Isp_avg(end)/start_frac;
-    Isp_std_design(iii) = Isp_std(end)/start_frac;
+    unstart_design(iii)   = unstart/N;
+    choke_design(iii)     = choke/N;
+    T_avg_design(iii)     = T_avg(index+1);
+    T_std_design(iii)     = T_std(index+1);
+    Pc_avg_design(iii)    = Pc_avg(index+1);
+    Pc_std_design(iii)    = Pc_std(index+1);
+    Pe_avg_design(iii)    = Pe_avg(index+1);
+    Pe_std_design(iii)    = Pe_std(index+1);
+    m_dot_avg_design(iii) = m_dot_avg(index+1);
+    m_dot_std_design(iii) = m_dot_std(index+1);
+    ve_avg_design(iii)    = ve_avg(index+1);
+    ve_std_design(iii)    = ve_std(index+1);
+    Tc_avg_design(iii)    = Tc_avg(index+1);
+    Tc_std_design(iii)    = Tc_std(index+1);
+    Isp_avg_design(iii)   = Isp_avg(index+1);
+    Isp_std_design(iii)   = Isp_std(index+1);
 end
 
 %% PLOTS
+failures = unstart_design + choke_design;
+[min_fail_rate, iii] = min(failures);
+
+Q_dot = Q_design(iii);
+
 figure(1)
-plot(Q_design,unstart_design*100,Q_design,choke_design*100)
-legend("unstart","choke")
+plot(Q_design,failures*100, Q_design,unstart_design*100, Q_design,choke_design*100)
+line([Q_dot,Q_dot],[min([unstart_design;choke_design])*100,max([unstart_design;choke_design])*100])
+legend("failures","unstart","choke")
 
 figure(2)
 subplot(2,7,1)
 plot(Q_design,T_avg_design)
+line([Q_dot,Q_dot],[min(T_avg_design),max(T_avg_design)])
 legend("T_avg")
 subplot(2,7,8)
 plot(Q_design,T_std_design)
+line([Q_dot,Q_dot],[min(T_std_design),max(T_std_design)])
 legend("T_std")
 subplot(2,7,2)
 plot(Q_design,Pc_avg_design)
+line([Q_dot,Q_dot],[min(Pc_avg_design),max(Pc_avg_design)])
 legend("Pc_avg")
 subplot(2,7,9)
 plot(Q_design,Pc_std_design)
+line([Q_dot,Q_dot],[min(Pc_std_design),max(Pc_std_design)])
 legend("Pc_std")
 subplot(2,7,3)
 plot(Q_design,Pe_avg_design)
+line([Q_dot,Q_dot],[min(Pe_avg_design),max(Pe_avg_design)])
 legend("Pe_avg")
 subplot(2,7,10)
 plot(Q_design,Pe_std_design)
+line([Q_dot,Q_dot],[min(Pe_std_design),max(Pe_std_design)])
 legend("Pe_std")
 subplot(2,7,4)
 plot(Q_design,m_dot_avg_design)
+line([Q_dot,Q_dot],[min(m_dot_avg_design),max(m_dot_avg_design)])
 legend("m_dot_avg")
 subplot(2,7,11)
 plot(Q_design,m_dot_std_design)
+line([Q_dot,Q_dot],[min(m_dot_std_design),max(m_dot_std_design)])
 legend("m_dot_std")
 subplot(2,7,5)
 plot(Q_design,ve_avg_design)
+line([Q_dot,Q_dot],[min(ve_avg_design),max(ve_avg_design)])
 legend("ve_avg")
 subplot(2,7,12)
 plot(Q_design,ve_std_design)
+line([Q_dot,Q_dot],[min(ve_std_design),max(ve_std_design)])
 legend("ve_std")
 subplot(2,7,6)
 plot(Q_design,Tc_avg_design)
+line([Q_dot,Q_dot],[min(Tc_avg_design),max(Tc_avg_design)])
 legend("Tc_avg")
 subplot(2,7,13)
 plot(Q_design,Tc_std_design)
+line([Q_dot,Q_dot],[min(Tc_std_design),max(Tc_std_design)])
 legend("Tc_std")
 subplot(2,7,7)
 plot(Q_design,Isp_avg_design)
+line([Q_dot,Q_dot],[min(Isp_avg_design),max(Isp_avg_design)])
 legend("Isp_avg")
 subplot(2,7,14)
 plot(Q_design,Isp_std_design)
+line([Q_dot,Q_dot],[min(Isp_std_design),max(Isp_std_design)])
 legend("Isp_std")
 
 %% Most Reliable
-[unstart_best, iii] = min(unstart_design);
+[min_fail_rate, iii] = min(failures);
 
 Q_dot = Q_design(iii);
-
 % Study the flow in function of Q_dot
 
 % Define some usefull constant value 
 K       = sqrt(2*k/(k-1) * R/Mmol * (1 - p_ratio^((k-1)/k))); % V_e = k * sqrt(Tc)
 aa      = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v;
-cc      = cp_v*((T-Pe_d*Ae)/K)^2;
+cc      = cp_v*((T-Pe_d*Ae)/(l*K))^2;
 Q_min   = sqrt(4*aa*cc);
     
 % mass flow rate
@@ -568,90 +564,83 @@ for i = 1:N
     p_ratio_i = xv;
     K_ratio2= k*(2/(k+1))^((k+1)/(k-1))*Mmol/R;
 
-    AA = cp_v*K_ratio2*At^2*K_tot^2;
+	% Compute mass flow rate from quartic equation
+    AA = cp_v*K_ratio2*(At/l)^2*K_tot^2;
     BB = 0;
-    CC = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v -2*P_plenum*K_tot*cp_v*K_ratio2*At^2;
+    CC = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v -2*P_plenum*K_tot*cp_v*K_ratio2*(At/l)^2;
     DD = - Q_dot;
-    EE = cp_v*K_ratio2*P_plenum^2*At^2;
+    EE = cp_v*K_ratio2*P_plenum^2*(At/l)^2;
 
-    fun = @(x) AA*x.^4 + CC*x.^2 + DD*x + EE;
-    dfun = @(x) 4*AA*x.^3 + 2*CC*x + DD;
-    dfun2 = @(x) 12*AA*x.^2 + 2*CC;
+    Delta = 256*AA^3*EE^3 - 128*AA^2*CC^2*EE^2 + 144*AA^2*CC*DD^2*EE - 27*AA^2*DD^4 + ...
+        16*AA*CC^4*EE - 4*AA*CC^3*DD^2;
+    % P = 8*AA*CC;
+    % D = 64*AA^3*EE - 16*AA^2*CC^2;
+    Delta0 = CC^2 + 12*AA*EE;
+    Delta1 = 2*CC^3 + 27*BB^2*EE + 27*AA*DD^2 - 72*AA*CC*EE;
+    % q1 = CC/AA;
+    % r1 = DD/AA;
+    % s1 = EE/AA;
+	pp = CC/AA;
+	qq = DD/AA;
+	QQ = ((Delta1 + sqrt(Delta1^2-4*Delta0^3))/2)^(1/3);
+	SS = 0.5*sqrt(-2/3*pp + 1/(3*AA)*(QQ+Delta0/QQ));
+	% sol_1 = -SS+0.5*sqrt(-4*SS^2-2*pp+qq/SS);
+	% sol_2 = -SS-0.5*sqrt(-4*SS*2-2*pp+qq/SS);
+	% sol_3 = +SS+0.5*sqrt(-4*SS*2-2*pp-qq/SS);
+	% sol_4 = +SS-0.5*sqrt(-4*SS*2-2*pp-qq/SS);
+	sign = -1 + 2*((-4*SS^2-2*pp+qq/SS) > 0);
 
-    toll = 1e-12;
-    err = toll + 1;
-    iter = 0;
-    xv = m_dot;
-    while (iter < 20 && err> toll)
-       dfx = dfun2(xv);
-       if dfx == 0
-          error(' Arresto per azzeramento di dfun');
-       else
-          xn = xv - dfun(xv)/dfx;
-          err = abs(dfun(xn));
-          iter = iter+1;
-          xv = xn;
-       end
-    end
-    xmin = xv;
+	sol_1 = -sign*SS+0.5*sqrt(-4*SS^2-2*pp+sign*qq/SS);
+	% sol_2 = -sign*SS-0.5*sqrt(-4*SS^2-2*pp+sign*qq/SS);
 
-    c1 = xmin;      % LOW TEMP BRANCH
-    c2 = 1e-4;
-    % c1 = 1e-7;    % HIGH TEMP BRANCH
-    % c2 = xmin;
-    toll = 1e-10;
-    err = toll + 1;
-    iter = 0;
-    while (iter < 30 && err > toll ) 
-        iter=iter+1;
-        x = (c2+c1)/2; %stima dello zero
-        fc = fun(x);     
-        err=abs(fc); 
-        % scelta del nuovo estremo per l'eventuale ciclo successivo       
-        if (fc*fun(c1) > 0)
-              c1=x; 
-        else 
-              c2=x; 
-        end
-    end
-    m_dot = x;
+    m_dot = sol_1;
+
+	choke_flag = ~isreal(sol_1);
+	choke = choke + choke_flag;
 
     Pc = P_plenum- K_tot*m_dot^2;
     Tc = (Q_dot-m_dot*(cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v))/m_dot/cp_v;
+	
+	unstart_flag = (Tc < T_eb);
+	unstart = unstart + unstart_flag*(~choke_flag);
+    
+	Pe = Pc*p_ratio_i;
+    ve = sqrt(2*k/(k-1)*R/Mmol*Tc*(1-(Pe/Pc)^((k-1)/k)));
 
-    unstart = unstart + (Tc < T_eb);
-    Tc = Tc*(Tc > T_eb);
-    Pe = Pc*p_ratio_i;
-    ve = sqrt(2*k/(k-1)*R/Mmol*Tc*(1-p_ratio_i^((k-1)/k)));
+    % m_dot_max = Pc*At*sqrt(k/(R/Mmol)/Tc)*(2/(k+1))^((k+1)/2/(k-1));
 
-    if Tc > T_eb
-        index = i - unstart;
+    % c_star1 = Pc*At/m_dot;
+    % c_star2 = sqrt(R/Mmol*Tc)/GAMMA;
 
-        T_val(index)=(m_dot*l*ve+Pe*Ae)*(Tc > T_eb);
-        Pc_val(index)=Pc*(Tc > T_eb);
-        Pe_val(index)=Pe*(Tc > T_eb);
-        m_dot_val(index)=m_dot*(Tc > T_eb);
-        ve_val(index)=ve*(Tc > T_eb);
-        Isp_val(index) = T_val(index)/m_dot_val(index)/g;
-        Tc_val(index) = Tc;
+	if all([(~unstart_flag),(~choke_flag)])
+    	index = i - (unstart + choke);
 
-        T_avg(index+1)=(T_avg(index)*(index-1)+T_val(index))/index;
-        T_std(index+1)=std(T_val(1:index));
-        Pc_avg(index+1)=(Pc_avg(index)*(index-1)+Pc_val(index))/index;
-        Pc_std(index+1)=std(Pc_val(1:index));
-        Pe_avg(index+1)=(Pe_avg(index)*(index-1)+Pe_val(index))/index;
-        Pe_std(index+1)=std(Pe_val(1:index));
-        m_dot_avg(index+1)=(m_dot_avg(index)*(index-1)+m_dot_val(index))/index;
-        m_dot_std(index+1)=std(m_dot_val(1:index));
-        ve_avg(index+1)=(ve_avg(index)*(index-1)+ve_val(index))/index;
-        ve_std(index+1)=std(ve_val(1:index));
-        Tc_avg(index+1)=(Tc_avg(index)*(index-1)+Tc_val(index))/index;
-        Tc_std(index+1)=std(Tc_val(1:index));
-        Isp_avg(index+1)=(Isp_avg(index)*(index-1)+Isp_val(index))/index;
-        Isp_std(index+1)=std(Isp_val(1:index));
-    end
+    	T_val(index)     = (m_dot*l*ve+Pe*Ae);
+    	Pc_val(index)    = Pc;
+    	Pe_val(index)    = Pe;
+    	m_dot_val(index) = m_dot;
+    	ve_val(index)    = ve;
+    	Isp_val(index)   = T_val(index)/m_dot_val(index)/g;
+    	Tc_val(index)    = Tc;
+
+    	T_avg(index+1)=(T_avg(index)*(index-1)+T_val(index))/index;
+    	T_std(index+1)=std(T_val(1:index));
+    	Pc_avg(index+1)=(Pc_avg(index)*(index-1)+Pc_val(index))/index;
+    	Pc_std(index+1)=std(Pc_val(1:index));
+    	Pe_avg(index+1)=(Pe_avg(index)*(index-1)+Pe_val(index))/index;
+    	Pe_std(index+1)=std(Pe_val(1:index));
+    	m_dot_avg(index+1)=(m_dot_avg(index)*(index-1)+m_dot_val(index))/index;
+    	m_dot_std(index+1)=std(m_dot_val(1:index));
+    	ve_avg(index+1)=(ve_avg(index)*(index-1)+ve_val(index))/index;
+    	ve_std(index+1)=std(ve_val(1:index));
+    	Tc_avg(index+1)=(Tc_avg(index)*(index-1)+Tc_val(index))/index;
+    	Tc_std(index+1)=std(Tc_val(1:index));
+    	Isp_avg(index+1)=(Isp_avg(index)*(index-1)+Isp_val(index))/index;
+    	Isp_std(index+1)=std(Isp_val(1:index));
+	end
 end
 
+failure_percentage = (unstart + choke)/N*100
 
 %% Best Plots
 
