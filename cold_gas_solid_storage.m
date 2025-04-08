@@ -98,6 +98,7 @@ Dt=2*rt;
 % Exit Velocity
 v_exit = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pe/Pc)^((k-1)/k)));
 
+
 % Exit Area
 Ae = eps*At;
 re=sqrt(Ae/pi);
@@ -310,9 +311,9 @@ for jj = 1:N
         Isp(ii) = T(ii)/(m_dot2*g);
         ii = ii + 1;
     end
-    T_vect(jj) = mean(T);
-    t_b_each(jj) = step*length(T);
-    T_avg(jj+1)  = T_avg(jj) + 1/jj*(T_vect(jj) - T_avg(jj));
+    T_vect(jj)          = mean(T);
+    t_b_each(jj)        = step*length(T);
+    T_avg(jj+1)         = T_avg(jj) + 1/jj*(T_vect(jj) - T_avg(jj));
     t_b_each_avg(jj+1) = t_b_each_avg(jj) + 1/jj*(t_b_each(jj) - t_b_each_avg(jj));
     T_std(jj) = std(T_vect(1:jj));
 end
@@ -336,6 +337,7 @@ P_plen_first_charge = charge_mass*RN*Tc/V_plen; % sono un idiota è quello prima
 P_tank_fc = P_plen_first_charge;
 ii = 1;
 toll = 1e-9;
+
 while P_tank_fc(end) > 100000
     m_dot2 = 5;
     m_dot1 = 19;
@@ -347,7 +349,7 @@ while P_tank_fc(end) > 100000
         m_dot1 =  P_cc*At/c_star;
         v  = m_dot1 /( A_inj* rho);
         deltaP= 0.5*rho*v^2*k_inj;
-        P_cc = P_tank(end) - deltaP;
+        P_cc = P_tank_fc(end) - deltaP;
         
         m_dot2= P_cc*At/c_star ;
 
@@ -402,11 +404,20 @@ while P_tank_fc(end) > 100000
     % Calcolo della pressione di uscita
     Pee = xn * P_cc;
 
-    v_e     = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
+    v_e        = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T_fc(ii)   = m_dot1*v_e + Ae*Pee;
     Isp_fc(ii) = T_fc(ii)/(m_dot2*g);
+
     ii = ii + 1;
 end
 
-T_avg_first_charge  = mean(T_fc)
-t_burn_first_cahrge = length(T_fc)*step
+T_avg_fc  = mean(T_fc);
+t_burn_fc = length(T_fc)*step;
+
+
+%% N charges
+
+Delta_V_fc = T_avg_fc/Mass*t_burn_fc
+Delta_V_each = T_avg(end)/Mass*t_b_each_avg(end)
+
+N_charges = (DeltaV - Delta_V_fc)/Delta_V_each

@@ -13,7 +13,7 @@ g = 9.81;
 T_nom = 5e-3;           % Thrust (N)
 % Pressure in the plenum mid, (1 - 4.5)
 %P_pl_mid = 260000;  % for complete discharge
-P_pl_mid = 258000;
+P_pl_mid = 260000;
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
@@ -225,6 +225,13 @@ P_tank_val = normrnd(P_tank_nom, P_tank_nom*0.01, [N,1]);
 
 toll = 1e-8;
 
+T_avg = 0;
+t_b_each_avg = 0;
+T_vect = 0;          
+t_b_each = 0;
+T_avg = 0;
+t_b_each_avg = 0;
+T_std = 0;
 for jj = 1:N
 
     A_tt = At_val(jj);
@@ -308,35 +315,34 @@ for jj = 1:N
         Isp(ii) = T(ii)/(m_dot2*g);
         ii = ii + 1;
     end
-    T_vect(jj) = mean(T);
-    t_b_each(jj) = step*length(T);
-    if jj > 1
-        T_avg(jj)  = T_avg(jj-1) + 1/jj*(T_vect(jj) - T_avg(jj-1));
-        t_b_each_avg = 
-    else
-        T_avg(jj)  = T_vect(jj);
-    end
-    T_std(jj) = std(T_vect(1:jj));
+    T_vect(jj)          = mean(T);
+    t_b_each(jj)        = step*length(T);
+    T_avg(jj+1)         = T_avg(jj) + 1/jj*(T_vect(jj) - T_avg(jj));
+    t_b_each_avg(jj+1)  = t_b_each_avg(jj) + 1/jj*(t_b_each(jj) - t_b_each_avg(jj));
+    T_std(jj)           = std(T_vect(1:jj));
 end
 
 %% plots
 
 figure
-subplot(2,1,1)
-plot(T_avg)
-subplot(2,1,2)
-plot(T_std)
-
+subplot(2,2,1)
+plot(T_avg(2:end))
+subplot(2,2,2)
+plot(T_std(2:end))
+subplot(2,2,3)
+plot(t_b_each_avg(2:end))
+title t_{b-each-avg}
 %% edge case
 % the first edge case investigated is the first charge, that does not reach
 % the nominal high pressure
 
 P_plen_first_charge = charge_mass*RN*Tc/V_plen; % sono un idiota è quello prima meno 1
 
-P_tank = P_plen_first_charge;
+P_tank_fc = P_plen_first_charge;
 ii = 1;
-toll = 1e-8;
-while P_tank(end) > 100000
+toll = 1e-9;
+
+while P_tank_fc(end) > 100000
     m_dot2 = 5;
     m_dot1 = 19;
     it = 0;
@@ -347,7 +353,7 @@ while P_tank(end) > 100000
         m_dot1 =  P_cc*At/c_star;
         v  = m_dot1 /( A_inj* rho);
         deltaP= 0.5*rho*v^2*k_inj;
-        P_cc = P_tank(end) - deltaP;
+        P_cc = P_tank_fc(end) - deltaP;
         
         m_dot2= P_cc*At/c_star ;
 
@@ -357,9 +363,9 @@ while P_tank(end) > 100000
     end
 
     deltaP_tank = m_dot1*step*RN*Tc/V_plen;
-    P_tank = [P_tank , P_tank(end)-deltaP_tank];
+    P_tank_fc = [P_tank_fc , P_tank_fc(end)-deltaP_tank];
 
-    m_dot_vect(ii) = m_dot2;
+    m_dot_vect_fc(ii) = m_dot2;
     
     aa = 1/eps^2*((k+1)/2)^(2/(1-k))*(k-1)/(k+1);
     bb = 2/k;
@@ -402,11 +408,20 @@ while P_tank(end) > 100000
     % Calcolo della pressione di uscita
     Pee = xn * P_cc;
 
-    v_e     = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
-    T(ii)   = m_dot1*v_e + Ae*Pee;
-    Isp(ii) = T(ii)/(m_dot2*g);
+    v_e        = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
+    T_fc(ii)   = m_dot1*v_e + Ae*Pee;
+    Isp_fc(ii) = T_fc(ii)/(m_dot2*g);
+
     ii = ii + 1;
 end
 
-T_avg_first_charge  = mean(T)
-t_burn_first_cahrge = length(T)*step
+T_avg_fc  = mean(T_fc);
+t_burn_fc = length(T_fc)*step;
+
+
+%% N charges
+
+Delta_V_fc = T_avg_fc/Mass*t_burn_fc
+Delta_V_each = T_avg(end)/Mass*t_b_each_avg(end)
+
+N_charges = (DeltaV - Delta_V_fc)/Delta_V_each
