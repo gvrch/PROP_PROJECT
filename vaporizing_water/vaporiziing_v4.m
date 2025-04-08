@@ -93,10 +93,12 @@ L_nozzle = L_conv + L_div;
 l = 1/2*(1+cos(alpha));         % 2D losses coefficientl
 
 %% Pipes geometry from literature
-D_h = 500e-6;
 L = 1000e-6;             
 mu = 1.137e-3;
-A_pipe = 500*100*1e-12;
+h_pipe = 100e-6;
+w_pipe = 500e-6;
+A_pipe = w_pipe*h_pipe*1e-12;
+D_h = 4*A_pipe/(2*(h_pipe+w_pipe));
 
 %% Minimum impulse bit
 valve_time_response = 0.1;
