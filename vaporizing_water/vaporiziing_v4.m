@@ -123,8 +123,10 @@ Re = zeros(N,2);
 P_tank = zeros(N,2);
 m_fuel = zeros(N,2);
 V_fuel = zeros(N,2);
+m_dot_max = zeros(N,2);
 P_gas_i = zeros(N,2);
 M_gas = zeros(N,2);
+M_e = zeros(N,2);
 V_gas = zeros(N,2);
 p_drop_injection = zeros(N,1);
 P_plenum = zeros(N,1);
@@ -134,15 +136,18 @@ p_drop_reg = zeros(N,1);
 Q_dot = linspace(Q_min,13,N);
 
 
-for i = 1:1
-    Q_tot = 13;
+for i = 1:length(Q_dot)
     % mass flow rate
     m_dot(i,1) = (Q_dot(i) + sqrt(Q_dot(i)^2 - Q_min^2))/(2*dd);
     m_dot(i,2) = (Q_dot(i) - sqrt(Q_dot(i)^2 - Q_min^2))/(2*dd);
-    
+
     % Combustion Chamber Temperature
     T_c(i,1) = ((T-Pe*Ae)/(m_dot(i,1) *K))^2;
     T_c(i,2) = ((T-Pe*Ae)/(m_dot(i,2) *K))^2;
+
+    % Check chocking condition
+    m_dot_max(i,1) = Pc*At/sqrt(k*R/Mmol*T_c(i,1))*k*(2/(k+1))^((k+1)/(2*(k-1)));    
+    m_dot_max(i,2) = Pc*At/sqrt(k*R/Mmol*T_c(i,2))*k*(2/(k+1))^((k+1)/(2*(k-1)));
     
     % Exit Velocity
     v_e(i,1) = K *sqrt(T_c(i,1));
@@ -151,6 +156,10 @@ for i = 1:1
     % Exit Temperature
     T_e(i,1) = T_c(i,1)*(Pe/Pc)^((k-1)/k);
     T_e(i,2) = T_c(i,2)*(Pe/Pc)^((k-1)/k);
+
+    % Exit Mach
+    M_e(i,1) = v_e(i,1)/sqrt(k*R/Mmol*T_e(i,1));
+    M_e(i,2) = v_e(i,2)/sqrt(k*R/Mmol*T_e(i,2));
     
     % Specific Impulse
     Isp(i,1) = T/(m_dot(i,1)*g);
@@ -230,7 +239,7 @@ for i=[1:length(Area_ratio_vect)]
 end
 
 % Calculate temperature at sampled times
-T_tot_vect = T_c * (1 + (k-1)/2 * MACH(1)^2);
+T_tot_vect = T_c;
 
 T_tot       = T_tot_vect (50,2);
 T_exit      = T_e (50,2);
