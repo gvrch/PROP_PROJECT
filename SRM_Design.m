@@ -332,3 +332,6 @@ L_div = (r_e-r_t)/tan(deg2rad(30))
 L = L_conv+L_div
 
 h_prop = (h+5*h_std(end))/N_thrusters
+
+t_burn_tot = m_prop_avg(end)/m_dot_avg(end);
+t_burn = t_burn_tot/N_thrusters;

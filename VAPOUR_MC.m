@@ -23,8 +23,8 @@ dP_inj_perc = 0.1;      % Pressure lost for injection   !!!CHECK!!!
 T     = 5e-3;         % Wanted Thrust                                         [N]
 dv      = 0.5;          % Wanted Delta v                                        [m/s]
 mass    = 4;            % S/C mass                                              [kg]
-N = 10000;              % N MONTECARLO
-
+N = 5000;              % N MONTECARLO
+GAMMA = sqrt(k*(2/(k+1))^((k+1)/(k-1)));
 % Injection - Cd (TBR)
 k_inj = 1/Cd^2;
 
@@ -94,9 +94,10 @@ aa      = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v;
 cc      = cp_v*((T-Pe_d*Ae)/K)^2;
 Q_min   = sqrt(4*aa*cc);
 
-Q_design = linspace(Q_min, Q_min+2, 100);   % Only for design
+Q_design = linspace(Q_min, Q_min+1.5, 100);   % Only for design
 
 unstart_design = zeros(length(Q_design),1);
+choke_design = zeros(length(Q_design),1);
 T_avg_design = zeros(length(Q_design),1);
 T_std_design = zeros(length(Q_design),1);
 Pc_avg_design = zeros(length(Q_design),1);
@@ -124,8 +125,8 @@ for iii = 1:length(Q_design)
     Q_min   = sqrt(4*aa*cc);
         
     % mass flow rate
-    m_dot = (Q_dot + sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % LOW TEMP BRANCH
-    % m_dot = (Q_dot - sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % HIGH TEMP BRANCH
+   % m_dot = (Q_dot + sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % LOW TEMP BRANCH
+     m_dot = (Q_dot - sqrt(Q_dot^2 - Q_min^2))/(2*aa);  % HIGH TEMP BRANCH
     
     % Combustion Chamber Temperature
     Tc = ((T-Pe_d*Ae)/(m_dot *K))^2;
@@ -201,6 +202,7 @@ for iii = 1:length(Q_design)
     
     
     unstart = 0;
+    choke = 0;
     for i = 1:N
         Ainj  = Ainj_val(i);
         At    = At_val(i);
@@ -220,7 +222,7 @@ for iii = 1:length(Q_design)
         
         c1  = 0;
         c2  = 0.5;
-        tol = 1e-7;
+        tol = 1e-16;
         err = tol + 1;
         it  = 0;
         
@@ -237,7 +239,7 @@ for iii = 1:length(Q_design)
             end
         end
         xv = x;
-        while (it < 15 && err> tol)
+        while (it < 200 && err> tol)
            dfx = dfun(xv);
            if dfx == 0
               error(' Arresto per azzeramento di dfun');
@@ -259,7 +261,23 @@ for iii = 1:length(Q_design)
         CC = cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v -2*P_plenum*K_tot*cp_v*K_ratio2*At^2;
         DD = - Q_dot;
         EE = cp_v*K_ratio2*P_plenum^2*At^2;
-    
+
+        Delta = 256*AA^3*EE^3 - 128*AA^2*CC^2*EE^2 + 144*AA^2*CC*DD^2*EE - 27*AA^2*DD^4 + ...
+            16*AA*CC^4*EE - 4*AA*CC^3*DD^2;
+        P = 8*AA*CC;
+        D = 64*AA^3*EE - 16*AA^2*CC^2;
+
+        Delta0 = CC^2 + 12*AA*EE;
+        Delta1 = 2*CC^3 + 27*BB^2*EE + 27*AA*DD^2 - 72*AA*CC*EE;
+
+        q = CC/AA;
+        r = DD/AA;
+        s = EE/AA;
+
+        if Delta > 0
+            sucaaaa = 0;
+        end
+
         fun = @(x) AA*x.^4 + CC*x.^2 + DD*x + EE;
         dfun = @(x) 4*AA*x.^3 + 2*CC*x + DD;
         dfun2 = @(x) 12*AA*x.^2 + 2*CC;
@@ -288,7 +306,7 @@ for iii = 1:length(Q_design)
         toll = 1e-10;
         err = toll + 1;
         iter = 0;
-        while (iter < 30 && err > toll ) 
+        while (iter < 40 && err > toll ) 
             iter=iter+1;
             x = (c2+c1)/2; %stima dello zero
             fc = fun(x);     
@@ -305,17 +323,25 @@ for iii = 1:length(Q_design)
         Pc = P_plenum- K_tot*m_dot^2;
         Tc = (Q_dot-m_dot*(cp_l * (T_eb-T_inj) + lambda - T_eb*cp_v))/m_dot/cp_v;
         unstart = unstart + (Tc < T_eb);
-        Tc = Tc*(Tc > T_eb);
         Pe = Pc*p_ratio_i;
         ve = sqrt(2*k/(k-1)*R/Mmol*Tc*(1-(Pe/Pc)^((k-1)/k)));
     
+        m_dot_max = Pc*At*sqrt(k/(R/Mmol)/Tc)*(2/(k+1))^((k+1)/2/(k-1));
+        choke = choke + ((m_dot-m_dot_max)/m_dot > 1e-3);
+
+
+        c_star1 = Pc*At/m_dot;
+        c_star2 = sqrt(R/Mmol*Tc)/GAMMA;
+        % choke = choke + (abs(c_star1-c_star2)/c_star2 > 1e-4);
+
+
         T_val(i)=(m_dot*l*ve+Pe*Ae)*(Tc > T_eb);
         Pc_val(i)=Pc*(Tc > T_eb);
         Pe_val(i)=Pe*(Tc > T_eb);
         m_dot_val(i)=m_dot*(Tc > T_eb);
         ve_val(i)=ve*(Tc > T_eb);
-        Isp_val(i) = T_val(i)/m_dot_val(i)/g;
-        Tc_val(i) = Tc;
+        Isp_val(i) = T_val(i)/m_dot_val(i)/g*(Tc > T_eb);
+        Tc_val(i) = Tc*(Tc > T_eb);
     
         T_avg(i+1)=(T_avg(i)*(i-1)+T_val(i))/i;
         T_std(i+1)=std(T_val(1:i));
@@ -337,6 +363,7 @@ for iii = 1:length(Q_design)
     start_frac = 1 - unstart/N;
     start_frac = start_frac + (start_frac < 1e-3);
     unstart_design(iii) = unstart/N;
+    choke_design(iii) = choke/N;
     T_avg_design(iii) = T_avg(end)/start_frac;
     T_std_design(iii) = T_std(end)/start_frac;
     Pc_avg_design(iii) = Pc_avg(end)/start_frac;
@@ -355,7 +382,8 @@ end
 
 %% PLOTS
 figure(1)
-plot(Q_design,unstart_design*100)
+plot(Q_design,unstart_design*100,Q_design,choke_design*100)
+legend("unstart","choke")
 
 figure(2)
 subplot(2,7,1)
