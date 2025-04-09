@@ -318,6 +318,7 @@ for jj = 1:N
     T_avg(jj+1)         = T_avg(jj) + 1/jj*(T_vect(jj) - T_avg(jj));
     t_b_each_avg(jj+1) = t_b_each_avg(jj) + 1/jj*(t_b_each(jj) - t_b_each_avg(jj));
     T_std(jj) = std(T_vect(1:jj));
+    t_b_std(jj) = std(t_b_each(1:jj));
 end
 
 %% plots
@@ -325,11 +326,16 @@ end
 figure
 subplot(2,2,1)
 plot(T_avg(2:end))
+title T_{avg}
 subplot(2,2,2)
 plot(T_std(2:end))
 subplot(2,2,3)
+title T_{std}
 plot(t_b_each_avg(2:end))
 title t_{b-each-avg}
+subplot(2,2,4)
+plot(t_b_std)
+title t_{b-std}
 %% edge case
 % the first edge case investigated is the first charge, that does not reach
 % the nominal high pressure

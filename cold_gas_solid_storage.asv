@@ -117,7 +117,7 @@ c_star = At*Pc/m_dot_nom;
 % variable fixed all noozzle cstar T 
 % we bring as guesses Pc mid 
 
-charge_mass = 0.0002; % preliminar guess
+charge_mass = 0.0003; % preliminar guess
 Delta_p_mid = 360000;
 V_plen = charge_mass*RN*Tc/Delta_p_mid;
 
@@ -207,7 +207,7 @@ figure
 plot(T)
 %% MonteCarlo
 
-N = 10;% 10000;
+N = 10000;
 
 rt_avg = sqrt(At/pi);
 rt_std = 5e-6;
@@ -318,6 +318,7 @@ for jj = 1:N
     T_avg(jj+1)         = T_avg(jj) + 1/jj*(T_vect(jj) - T_avg(jj));
     t_b_each_avg(jj+1) = t_b_each_avg(jj) + 1/jj*(t_b_each(jj) - t_b_each_avg(jj));
     T_std(jj) = std(T_vect(1:jj));
+    t_b_std(jj) = std(t_b_each(1:jj));
 end
 
 %% plots
@@ -420,6 +421,8 @@ t_burn_fc = length(T_fc)*step;
 %% N charges
 
 Delta_V_fc = T_avg_fc/Mass*t_burn_fc
-Delta_V_each = T_avg_nom/Mass*t_bur_each
+Delta_V_each = T_avg(end)/Mass*t_b_each_avg(end)
 
-N_charges = (DeltaV - Delta_V_fc)/Delta_V_each
+N_charges = (DeltaV - Delta_V_fc)/Delta_V_each + 1
+
+mass_totale = N_charges*charge_mass
