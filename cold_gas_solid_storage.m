@@ -13,7 +13,7 @@ g = 9.81;
 T_nom = 5e-3;           % Thrust (N)
 % Pressure in the plenum mid, (1 - 4.5)
 %P_pl_mid = 260000;  % for complete discharge
-P_pl_mid = 260000;
+P_pl_mid = 235600;
 Tc = 300;           % chamber temperature (K) fixed
 MM = 0.028 ;        % kg/mol
 k = 1.4;
@@ -38,7 +38,7 @@ A_v = 0.5e-3^2*pi;
 r_inj = 250e-6;
 A_inj = r_inj^2*pi;
 
-v_p = 10;   % guessed Possibly mega wrong, until we know for such small tubes
+v_p = 1.2;   % guessed 
 
 Delta_P_plen_nom = 0.5*rho*v_p^2*k_inj;
 Pc = P_pl_mid - Delta_P_plen_nom;
@@ -55,7 +55,7 @@ dfun = @(x) -x^(bb-1)*((cc+bb)*x^cc-bb);
 
 c1 = 0;
 c2 = 0.5;
-tol = 1e-6;
+tol = 1e-9;
 err = tol + 1;
 it = 0;
 
@@ -117,7 +117,7 @@ c_star = At*Pc/m_dot_nom;
 % variable fixed all noozzle cstar T 
 % we bring as guesses Pc mid 
 
-charge_mass = 0.0002; % preliminar guess
+charge_mass = 0.0003; % preliminar guess
 Delta_p_mid = 360000;
 V_plen = charge_mass*RN*Tc/Delta_p_mid;
 
@@ -126,6 +126,7 @@ step = 0.1;
 P_tank = P_tank_nom;
 ii = 1;
 toll = 1e-8;
+M_used = 0;
 while P_tank(end) > 100000
     m_dot2 = 5;
     m_dot1 = 19;
@@ -195,6 +196,7 @@ while P_tank(end) > 100000
     v_e     = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T(ii)   = m_dot1*v_e + Ae*Pee;
     Isp(ii) = T(ii)/(m_dot2*g);
+    M_used  = M_used + m_dot2*step;
     ii = ii + 1;
 end
 
@@ -274,7 +276,7 @@ for jj = 1:N
         
         c1 = 0;
         c2 = 0.5;
-        tol = 1e-6;
+        tol = 1e-9;
         err = tol + 1;
         it = 0;
         
@@ -291,7 +293,7 @@ for jj = 1:N
             end
         end
         xv = x;
-        while (it< 5 && err> tol)
+        while (it< 20 && err> tol)
            dfx = dfun(xv);
            if dfx == 0
               error(' Arresto per azzeramento di dfun');
@@ -420,4 +422,6 @@ t_burn_fc = length(T_fc)*step;
 Delta_V_fc = T_avg_fc/Mass*t_burn_fc
 Delta_V_each = T_avg(end)/Mass*t_b_each_avg(end)
 
-N_charges = (DeltaV - Delta_V_fc)/Delta_V_each
+N_charges = (DeltaV - Delta_V_fc)/Delta_V_each + 1
+
+mass_totale = N_charges*charge_mass

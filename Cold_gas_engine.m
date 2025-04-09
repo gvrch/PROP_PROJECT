@@ -147,7 +147,7 @@ re_std = 5e-6;
 re_val = normrnd(re_avg, re_std, [N,1]);
 Ae_val = re_val.^2.*pi;
 
-toll = 1e-8;
+toll = 1e-10;
 
 T_avg = 0;
 Isp_avg = 0;
@@ -229,6 +229,8 @@ for ii = 1:N
 
     P_c_mc(ii) = P_cc;
     m_dot_mc(ii) = m_dot2;
+    m_dot_max = P_cc*A_tt*sqrt(k/RN/Tc)*(2/(k+1))^((k+1)/2/(k-1));
+    m_dot_ratio(ii) = abs(m_dot_max-m_dot2)/m_dot_max;
     v_e = sqrt(2*k/(k-1)*R/MM*Tc*(1-(Pee/P_cc)^((k-1)/k)));
     T(ii) =  m_dot1*v_e + Aee*Pee;
     Isp_mc(ii) = T(ii)/(m_dot2*g);
@@ -249,8 +251,7 @@ for ii = 1:N
     V_tank_mc(ii)  = -(M_N_used_mc(end)*RN*Tc - P_plen_nom*V_plen_mc*k)/(2*P_f_nom);
     M_N_tot_mc(ii) = M_res_mc(ii) + M_N_used_mc(end);
 
-    
-    
+
     T_avg(ii+1) = T_avg(ii) + 1/(ii)*(T(ii) - T_avg(ii));
     Isp_avg(ii+1) = Isp_avg(ii) + 1/(ii)*(Isp_mc(ii) - Isp_avg(ii));    
     P_c_mc_avg(ii+1) = P_c_mc(ii) + 1/(ii)*(P_c_mc(ii) - P_c_mc_avg(ii));
@@ -309,7 +310,7 @@ title V_{tank-std}
 
 %% leackage losses computed for 1 year
 rho_stand = 1.176; %kg/m^3 cond standard
-leack_rate = 10^-5; %scc/m standard cubic centieters every second
+leack_rate = 10^-5; %scc/s standard cubic centieters every second
 t_leack = 60*60*24*365;
 tot_leack_scc = leack_rate*t_leack;
 tot_mass_leack = tot_leack_scc*10^-6/rho_stand;
